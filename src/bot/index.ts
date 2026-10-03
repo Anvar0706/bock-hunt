@@ -16,7 +16,30 @@ const BOT_TOKEN = (process.env.BOT_TOKEN || '8882805957:AAH1YKIQqNry-vLmJvJDJ-WG
 const ADMIN_ID = (process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556').trim();
 const WEB_APP_URL = process.env.WEBAPP_URL || `https://${process.env.VERCEL_URL || "bock-hunt.vercel.app"}`;
 
-export const bot = new Bot(BOT_TOKEN);
+export const bot = new Bot(BOT_TOKEN, {
+  botInfo: {
+    id: 8882805957,
+    is_bot: true,
+    first_name: 'BlockHunt Protocol',
+    username: 'Block_huntbot',
+    can_join_groups: true,
+    can_read_all_group_messages: false,
+    supports_inline_queries: false,
+    supports_guest_queries: false,
+    can_connect_to_business: false,
+    has_main_web_app: false,
+    has_topics_enabled: false,
+    allows_users_to_create_topics: false,
+    can_manage_bots: false,
+    supports_join_request_queries: false,
+  },
+});
+
+// Middleware to log updates
+bot.use(async (ctx, next) => {
+  console.log(`[Bot] Incoming update from ${ctx.from?.id}: ${ctx.message?.text || 'callback/other'}`);
+  await next();
+});
 
 function getAppKeyboard(lang: string, isAdmin: boolean) {
   const isRu = lang === 'ru';
