@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return await handleWebhook(req);
   } catch (err: any) {
     console.error('[Bot Webhook] Error:', err?.message || err);
-    return new Response('OK', { status: 200 });
+    return new Response(JSON.stringify({ error: err?.message || 'Unknown error' }), { status: 500 });
   }
 }
 
