@@ -729,15 +729,16 @@ export async function creditReferralCommission(referredTgId: string, commissionU
 export async function getReferralStats(referrerTgId: string) {
   await initDb();
   const db = getDbClient();
-  const refTgIdStr = String(referrerTgId);
+  const refTgIdStr = String(referrerTgId).trim();
 
+  // Remove ORDER BY to prevent LibSQL remote index scan dropping rows
   const refsRes = await db.execute({
-    sql: 'SELECT * FROM referrals WHERE referrerTgId = ? ORDER BY createdAt DESC',
+    sql: 'SELECT * FROM referrals WHERE referrerTgId = ?',
     args: [refTgIdStr],
   });
 
   const withdrawalsRes = await db.execute({
-    sql: 'SELECT * FROM withdrawals WHERE tgId = ? ORDER BY createdAt DESC',
+    sql: 'SELECT * FROM withdrawals WHERE tgId = ?',
     args: [refTgIdStr],
   });
 
@@ -750,7 +751,7 @@ export async function getReferralStats(referrerTgId: string) {
     joinedAt: String(r.joinedAt || ''),
     plan: String(r.plan || 'community'),
     earnedUsd: Number(r.earnedUsd || 0),
-  }));
+  })).sort((a, b) => new Date(b.joinedAt || 0).getTime() - new Date(a.joinedAt || 0).getTime());
 
   const withdrawalsList = withdrawalsRes.rows.map((w) => ({
     id: String(w.id),
@@ -764,7 +765,7 @@ export async function getReferralStats(referrerTgId: string) {
     status: String(w.status || 'PENDING'),
     txHash: w.txHash ? String(w.txHash) : undefined,
     note: w.note ? String(w.note) : undefined,
-  }));
+  })).sort((a, b) => new Date(b.requestedAt || 0).getTime() - new Date(a.requestedAt || 0).getTime());
 
   const totalEarned = referralsList.reduce((acc, r) => acc + (r.earnedUsd || 0), 0);
   const totalPaidOut = withdrawalsList

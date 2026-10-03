@@ -97,7 +97,7 @@ bot.command('start', async (ctx) => {
 
     // Check deep-link referral: /start ref_12345 or /start 12345
     const match = ctx.match;
-    if (match && !existing) {
+    if (match) {
       const refId = String(match).replace(/^ref_/, '').trim();
       if (refId && /^\d+$/.test(refId) && refId !== tgId) {
         await bindReferral({
