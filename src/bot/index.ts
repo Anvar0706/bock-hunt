@@ -17,6 +17,9 @@ const ADMIN_ID = (process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '85153
 const WEB_APP_URL = (process.env.WEBAPP_URL || 'https://bock-hunt.vercel.app').trim();
 
 export const bot = new Bot(BOT_TOKEN, {
+  client: {
+    canUseWebhookReply: () => false,
+  },
   botInfo: {
     id: 8882805957,
     is_bot: true,

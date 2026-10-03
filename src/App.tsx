@@ -56,13 +56,31 @@ function MainApp() {
   const [userStatus, setUserStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
   const [currentTgUser, setCurrentTgUser] = useState<{ id: string; name: string; username: string } | null>(null);
 
-  // Sync pricing settings from backend API
+  // Sync live pricing settings, users, and admin addresses from backend API
   useEffect(() => {
     fetch('/api/pricing-settings')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.ok && data.settings) {
           setPricingSettings(data.settings);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/users')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && Array.isArray(data.users) && data.users.length > 0) {
+          setAdminUsers(data.users);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/admin-addresses')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && data.addresses) {
+          setAdminAddresses(data.addresses);
         }
       })
       .catch(() => {});

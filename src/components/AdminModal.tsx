@@ -117,16 +117,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [userExtractions, setUserExtractions] = useState<ExtractionRecord[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
 
-  // Sync users from props once initially, but allow local actions and live fetches to manage state
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Sync users from props whenever users array is provided
   useEffect(() => {
-    if (users && users.length > 0 && !initialUsersSyncedRef.current) {
+    if (users && users.length > 0) {
       setUserList(users);
-      initialUsersSyncedRef.current = true;
     }
   }, [users]);
 
   // Fetch live real users from backend API
   const fetchLiveUsers = async () => {
+    setLoadingUsers(true);
     try {
       const res = await fetch('/api/users');
       if (res.ok) {
@@ -138,6 +140,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
     } catch (err) {
       console.error('Failed to load live users from API:', err);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -474,24 +478,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   // Filter users by search and active filter tab
-  const filteredUsers = userList.filter((u) => {
-    const q = searchQuery.toLowerCase();
-    const matchesQuery =
-      u.name.toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      u.tgId.includes(q) ||
-      u.plan.toLowerCase().includes(q);
+  const filteredUsers = (userList || []).filter((u) => {
+    if (!u) return false;
+    const q = (searchQuery || '').toLowerCase().trim();
+    const name = String(u.name || '').toLowerCase();
+    const username = String(u.username || '').toLowerCase();
+    const tgId = String(u.tgId || '');
+    const plan = String(u.plan || '').toLowerCase();
+    const status = String(u.status || 'ACTIVE').toUpperCase();
 
+    const matchesQuery = !q || name.includes(q) || username.includes(q) || tgId.includes(q) || plan.includes(q);
     if (!matchesQuery) return false;
 
-    if (userFilter === 'active') return u.status === 'ACTIVE';
-    if (userFilter === 'blocked') return u.status === 'BLOCKED' || u.status === 'RESTRICTED';
-    if (userFilter === 'paid') return u.plan !== 'community';
+    if (userFilter === 'active') return status === 'ACTIVE';
+    if (userFilter === 'blocked') return status === 'BLOCKED' || status === 'RESTRICTED';
+    if (userFilter === 'paid') return plan !== 'community';
     return true;
   });
 
-  const totalVolume = userList.reduce((acc, u) => acc + u.totalExtractedUsd, 0);
-  const proCount = userList.filter((u) => u.plan !== 'community').length;
+  const totalVolume = (userList || []).reduce((acc, u) => acc + (Number(u.totalExtractedUsd) || 0), 0);
+  const proCount = (userList || []).filter((u) => String(u.plan || '').toLowerCase() !== 'community').length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">

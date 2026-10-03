@@ -3,10 +3,7 @@ import { webhookCallback } from 'grammy';
 
 export const dynamic = 'force-dynamic';
 
-const handleWebhook = webhookCallback(bot, 'std/http', {
-  webhookReply: false,
-  timeoutMilliseconds: 15_000,
-});
+const handleWebhook = webhookCallback(bot, 'std/http');
 
 export async function POST(req: Request) {
   try {
