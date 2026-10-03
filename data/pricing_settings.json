@@ -1,0 +1,27 @@
+{
+  "plans": {
+    "pro": {
+      "weekly": 25,
+      "monthly": 79
+    },
+    "enterprise": {
+      "weekly": 69,
+      "monthly": 199
+    }
+  },
+  "discount": {
+    "enabled": false,
+    "percent": 50
+  },
+  "banner": {
+    "enabled": false,
+    "textEn": "New members get 50% off their first month!",
+    "textRu": "Новые пользователи получают скидку 50% на первый месяц!",
+    "badgeText": "50% OFF",
+    "textColor": "#FFFFFF",
+    "bgColor": "linear-gradient(135deg, rgba(255,0,85,0.2) 0%, rgba(168,85,247,0.2) 50%, rgba(56,232,255,0.2) 100%)",
+    "borderColor": "rgba(255,0,85,0.5)",
+    "badgeBgColor": "linear-gradient(135deg, #FF0055 0%, #FF5252 100%)",
+    "badgeTextColor": "#FFFFFF"
+  }
+}

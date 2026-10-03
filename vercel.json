@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "functions": {
+    "app/api/bot/route.ts": {
+      "maxDuration": 15
+    },
+    "app/api/verify-payment/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
