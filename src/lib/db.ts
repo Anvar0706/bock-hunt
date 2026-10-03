@@ -8,11 +8,19 @@ declare global {
   var _dbInitialized: Promise<boolean> | undefined;
 }
 
-const dbUrl = process.env.DATABASE_URL || 'file:./data/database.sqlite';
-const authToken = process.env.DATABASE_AUTH_TOKEN || undefined;
-
 export function getDbClient(): Client {
   if (!globalThis._libsqlClient) {
+    const rawUrl =
+      process.env.TURSO_DATABASE_URL ||
+      process.env.DATABASE_URL ||
+      'file:./data/database.sqlite';
+    const dbUrl = rawUrl.trim();
+    const rawToken =
+      process.env.TURSO_AUTH_TOKEN ||
+      process.env.DATABASE_AUTH_TOKEN ||
+      undefined;
+    const authToken = rawToken ? rawToken.trim() : undefined;
+
     // If local file path, ensure directory exists
     if (dbUrl.startsWith('file:')) {
       const filePath = dbUrl.replace(/^file:/, '');
@@ -23,6 +31,8 @@ export function getDbClient(): Client {
         } catch {}
       }
     }
+
+    console.log('[DB] Initializing client with:', dbUrl.startsWith('libsql://') ? 'Turso Cloud' : dbUrl);
 
     globalThis._libsqlClient = createClient({
       url: dbUrl,
@@ -57,7 +67,7 @@ const DEFAULT_PRICING_SETTINGS = {
   },
 };
 
-const ADMIN_ID = process.env.ADMIN_TG_ID || '8515329556';
+const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
 
 export async function initDb(): Promise<boolean> {
   if (globalThis._dbInitialized) {

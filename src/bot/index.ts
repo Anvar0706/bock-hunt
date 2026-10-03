@@ -12,8 +12,8 @@ import {
 } from '../lib/db';
 import { botMessages, getBotMsg } from './messages';
 
-const BOT_TOKEN = process.env.BOT_TOKEN || '8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ';
-const ADMIN_ID = process.env.ADMIN_TG_ID || '8515329556';
+const BOT_TOKEN = (process.env.BOT_TOKEN || '8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ').trim();
+const ADMIN_ID = (process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556').trim();
 const WEB_APP_URL = process.env.WEBAPP_URL || `https://${process.env.VERCEL_URL || "bock-hunt.vercel.app"}`;
 
 export const bot = new Bot(BOT_TOKEN);
