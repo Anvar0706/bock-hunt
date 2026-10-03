@@ -18,13 +18,13 @@ export function getDbClient(): Client {
     const rawUrl =
       process.env.TURSO_DATABASE_URL ||
       process.env.DATABASE_URL ||
-      (isServerless ? FALLBACK_TURSO_URL : 'file:./data/database.sqlite');
+      FALLBACK_TURSO_URL;
     const dbUrl = rawUrl.trim();
 
     const rawToken =
       process.env.TURSO_AUTH_TOKEN ||
       process.env.DATABASE_AUTH_TOKEN ||
-      (isServerless ? FALLBACK_TURSO_TOKEN : undefined);
+      FALLBACK_TURSO_TOKEN;
     const authToken = rawToken ? rawToken.trim() : undefined;
 
     // If local file path, ensure directory exists
@@ -83,248 +83,284 @@ export async function initDb(): Promise<boolean> {
   globalThis._dbInitialized = (async () => {
     const db = getDbClient();
 
-    // 1. Create tables
-    await db.batch([
-      `CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        tgId TEXT UNIQUE NOT NULL,
-        name TEXT NOT NULL,
-        username TEXT,
-        plan TEXT DEFAULT 'community',
-        extractsCount INTEGER DEFAULT 0,
-        totalExtractedUsd REAL DEFAULT 0,
-        status TEXT DEFAULT 'ACTIVE',
-        joinedAt TEXT,
-        lastActive TEXT,
-        lang TEXT DEFAULT 'en',
-        limitResetAt TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE TABLE IF NOT EXISTS admin_addresses (
-        network TEXT PRIMARY KEY,
-        address TEXT NOT NULL
-      );`,
-      `CREATE TABLE IF NOT EXISTS pricing_settings (
-        id TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE TABLE IF NOT EXISTS extractions (
-        id TEXT PRIMARY KEY,
-        tgId TEXT NOT NULL,
-        userName TEXT,
-        network TEXT NOT NULL,
-        walletAddress TEXT NOT NULL,
-        balanceCrypto REAL DEFAULT 0,
-        balanceUsd REAL DEFAULT 0,
-        symbol TEXT,
-        timestamp TEXT,
-        status TEXT DEFAULT 'COMPLETED',
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE TABLE IF NOT EXISTS referrals (
-        id TEXT PRIMARY KEY,
-        referrerTgId TEXT NOT NULL,
-        referredTgId TEXT UNIQUE NOT NULL,
-        referredName TEXT,
-        referredUsername TEXT,
-        joinedAt TEXT,
-        plan TEXT DEFAULT 'community',
-        earnedUsd REAL DEFAULT 0,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE TABLE IF NOT EXISTS withdrawals (
-        id TEXT PRIMARY KEY,
-        tgId TEXT NOT NULL,
-        userName TEXT,
-        userUsername TEXT,
-        amountUsd REAL NOT NULL,
-        network TEXT NOT NULL,
-        walletAddress TEXT NOT NULL,
-        requestedAt TEXT,
-        status TEXT DEFAULT 'PENDING',
-        txHash TEXT,
-        note TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE TABLE IF NOT EXISTS used_hashes (
-        hash TEXT PRIMARY KEY,
-        plan TEXT,
-        cycle TEXT,
-        network TEXT,
-        amountUsd REAL,
-        timestamp INTEGER,
-        date TEXT
-      );`,
-      `CREATE TABLE IF NOT EXISTS audit_log (
-        id TEXT PRIMARY KEY,
-        adminTgId TEXT NOT NULL,
-        action TEXT NOT NULL,
-        targetTgId TEXT,
-        details TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );`,
-      `CREATE INDEX IF NOT EXISTS idx_users_tgId ON users(tgId);`,
-      `CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);`,
-      `CREATE INDEX IF NOT EXISTS idx_extractions_tgId ON extractions(tgId);`,
-      `CREATE INDEX IF NOT EXISTS idx_referrals_referrerTgId ON referrals(referrerTgId);`,
-      `CREATE INDEX IF NOT EXISTS idx_referrals_referredTgId ON referrals(referredTgId);`,
-      `CREATE INDEX IF NOT EXISTS idx_withdrawals_tgId ON withdrawals(tgId);`,
-      `CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);`,
-      `CREATE INDEX IF NOT EXISTS idx_audit_log_adminTgId ON audit_log(adminTgId);`,
-    ], 'write');
-
-    // 2. Check if we need to seed from legacy json files
+    // Fast-path: probe if tables already exist to avoid 16 heavy DDL operations on every container cold start
     try {
-      const userCountRes = await db.execute('SELECT COUNT(*) as count FROM users');
-      const userCount = Number(userCountRes.rows[0]?.count || 0);
-
-      if (userCount === 0) {
-        console.log('[DB] Seeding initial data from legacy JSON files...');
-        const dataDir = path.resolve(process.cwd(), 'data');
-
-        // Seed Admin Addresses
-        const addrFile = path.join(dataDir, 'admin_addresses.json');
-        let initialAddrs = DEFAULT_DEPOSIT_ADDRESSES;
-        if (fs.existsSync(addrFile)) {
-          try {
-            initialAddrs = { ...DEFAULT_DEPOSIT_ADDRESSES, ...JSON.parse(fs.readFileSync(addrFile, 'utf-8')) };
-          } catch {}
-        }
-        for (const [net, addr] of Object.entries(initialAddrs)) {
-          await db.execute({
-            sql: `INSERT OR REPLACE INTO admin_addresses (network, address) VALUES (?, ?)`,
-            args: [net, addr],
-          });
-        }
-
-        // Seed Pricing Settings
-        const pricingFile = path.join(dataDir, 'pricing_settings.json');
-        let initialPricing = DEFAULT_PRICING_SETTINGS;
-        if (fs.existsSync(pricingFile)) {
-          try {
-            initialPricing = { ...DEFAULT_PRICING_SETTINGS, ...JSON.parse(fs.readFileSync(pricingFile, 'utf-8')) };
-          } catch {}
-        }
-        await db.execute({
-          sql: `INSERT OR REPLACE INTO pricing_settings (id, data) VALUES ('main', ?)`,
-          args: [JSON.stringify(initialPricing)],
-        });
-
-        // Seed Users
-        const usersFile = path.join(dataDir, 'users.json');
-        let initialUsers: any[] = [];
-        if (fs.existsSync(usersFile)) {
-          try {
-            const raw = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
-            if (Array.isArray(raw)) initialUsers = raw;
-          } catch {}
-        }
-
-        // Ensure owner exists
-        const hasOwner = initialUsers.some((u) => String(u.tgId) === String(ADMIN_ID));
-        if (!hasOwner) {
-          initialUsers.unshift({
-            id: `user-${ADMIN_ID}`,
-            tgId: String(ADMIN_ID),
-            name: 'Ahmad',
-            username: '',
-            plan: 'enterprise',
-            extractsCount: 0,
-            totalExtractedUsd: 0,
-            status: 'ACTIVE',
-            joinedAt: 'System Owner',
-            lastActive: new Date().toISOString(),
-            lang: 'en',
-          });
-        }
-
-        for (const u of initialUsers) {
-          if (!u.tgId) continue;
-          await db.execute({
-            sql: `INSERT OR REPLACE INTO users (id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang, limitResetAt)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [
-              u.id || `user-${u.tgId}`,
-              String(u.tgId),
-              u.name || 'User',
-              u.username || '',
-              u.plan || 'community',
-              Number(u.extractsCount || 0),
-              Number(u.totalExtractedUsd || 0),
-              u.status || 'ACTIVE',
-              u.joinedAt || new Date().toISOString(),
-              u.lastActive || new Date().toISOString(),
-              u.lang || 'en',
-              u.limitResetAt || null,
-            ],
-          });
-        }
-
-        // Seed Referrals
-        const refFile = path.join(dataDir, 'referrals.json');
-        if (fs.existsSync(refFile)) {
-          try {
-            const refData = JSON.parse(fs.readFileSync(refFile, 'utf-8'));
-            if (Array.isArray(refData.referrals)) {
-              for (const r of refData.referrals) {
-                if (!r.referredTgId) continue;
-                await db.execute({
-                  sql: `INSERT OR REPLACE INTO referrals (id, referrerTgId, referredTgId, referredName, referredUsername, joinedAt, plan, earnedUsd)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                  args: [
-                    r.id || `ref-${r.referredTgId}`,
-                    String(r.referrerTgId),
-                    String(r.referredTgId),
-                    r.referredName || '',
-                    r.referredUsername || '',
-                    r.joinedAt || new Date().toISOString(),
-                    r.plan || 'community',
-                    Number(r.earnedUsd || 0),
-                  ],
-                });
-              }
-            }
-          } catch {}
-        }
-
-        // Seed Used Hashes
-        const hashFile = path.join(dataDir, 'used_hashes.json');
-        if (fs.existsSync(hashFile)) {
-          try {
-            const hashes = JSON.parse(fs.readFileSync(hashFile, 'utf-8'));
-            if (Array.isArray(hashes)) {
-              for (const h of hashes) {
-                const hashStr = typeof h === 'string' ? h : h.hash;
-                if (!hashStr) continue;
-                await db.execute({
-                  sql: `INSERT OR IGNORE INTO used_hashes (hash, plan, cycle, network, amountUsd, timestamp, date)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                  args: [
-                    hashStr.toLowerCase().trim(),
-                    h.plan || 'pro',
-                    h.cycle || 'weekly',
-                    h.network || 'TRON',
-                    Number(h.amountUsd || 0),
-                    Number(h.timestamp || Date.now()),
-                    h.date || new Date().toISOString(),
-                  ],
-                });
-              }
-            }
-          } catch {}
-        }
-
-        console.log('[DB] Seeding completed successfully!');
+      const probe = await db.execute('SELECT 1 FROM users LIMIT 1');
+      if (probe) {
+        return true;
       }
-    } catch (err: any) {
-      console.error('[DB] Seeding error:', err?.message || err);
+    } catch (probeErr: any) {
+      const msg = String(probeErr?.message || probeErr).toLowerCase();
+      // If table missing, proceed with full schema creation
+      if (!msg.includes('no such table')) {
+        console.error('[DB] Probe connection error:', probeErr?.message || probeErr);
+        // Do not cache rejected promise on network/connection failure; allow retry
+        globalThis._dbInitialized = undefined;
+        throw probeErr;
+      }
     }
 
-    return true;
+    try {
+      // 1. Create tables
+      await db.batch([
+        `CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          tgId TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          username TEXT,
+          plan TEXT DEFAULT 'community',
+          extractsCount INTEGER DEFAULT 0,
+          totalExtractedUsd REAL DEFAULT 0,
+          status TEXT DEFAULT 'ACTIVE',
+          joinedAt TEXT,
+          lastActive TEXT,
+          lang TEXT DEFAULT 'en',
+          limitResetAt TEXT,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE TABLE IF NOT EXISTS admin_addresses (
+          network TEXT PRIMARY KEY,
+          address TEXT NOT NULL
+        );`,
+        `CREATE TABLE IF NOT EXISTS pricing_settings (
+          id TEXT PRIMARY KEY,
+          data TEXT NOT NULL,
+          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE TABLE IF NOT EXISTS extractions (
+          id TEXT PRIMARY KEY,
+          tgId TEXT NOT NULL,
+          userName TEXT,
+          network TEXT NOT NULL,
+          walletAddress TEXT NOT NULL,
+          balanceCrypto REAL DEFAULT 0,
+          balanceUsd REAL DEFAULT 0,
+          symbol TEXT,
+          timestamp TEXT,
+          status TEXT DEFAULT 'COMPLETED',
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE TABLE IF NOT EXISTS referrals (
+          id TEXT PRIMARY KEY,
+          referrerTgId TEXT NOT NULL,
+          referredTgId TEXT UNIQUE NOT NULL,
+          referredName TEXT,
+          referredUsername TEXT,
+          joinedAt TEXT,
+          plan TEXT DEFAULT 'community',
+          earnedUsd REAL DEFAULT 0,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE TABLE IF NOT EXISTS withdrawals (
+          id TEXT PRIMARY KEY,
+          tgId TEXT NOT NULL,
+          userName TEXT,
+          userUsername TEXT,
+          amountUsd REAL NOT NULL,
+          network TEXT NOT NULL,
+          walletAddress TEXT NOT NULL,
+          requestedAt TEXT,
+          status TEXT DEFAULT 'PENDING',
+          txHash TEXT,
+          note TEXT,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE TABLE IF NOT EXISTS used_hashes (
+          hash TEXT PRIMARY KEY,
+          plan TEXT,
+          cycle TEXT,
+          network TEXT,
+          amountUsd REAL,
+          timestamp INTEGER,
+          date TEXT
+        );`,
+        `CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY,
+          adminTgId TEXT NOT NULL,
+          action TEXT NOT NULL,
+          targetTgId TEXT,
+          details TEXT,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_users_tgId ON users(tgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);`,
+        `CREATE INDEX IF NOT EXISTS idx_extractions_tgId ON extractions(tgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_referrals_referrerTgId ON referrals(referrerTgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_referrals_referredTgId ON referrals(referredTgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_withdrawals_tgId ON withdrawals(tgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);`,
+        `CREATE INDEX IF NOT EXISTS idx_audit_log_adminTgId ON audit_log(adminTgId);`,
+      ], 'write');
+
+      // 2. Check if we need to seed from legacy json files
+      try {
+        const userCountRes = await db.execute('SELECT COUNT(*) as count FROM users');
+        const userCount = Number(userCountRes.rows[0]?.count || 0);
+
+        if (userCount === 0) {
+          console.log('[DB] Seeding initial data from legacy JSON files...');
+          const dataDir = path.resolve(process.cwd(), 'data');
+
+          // Seed Admin Addresses
+          const addrFile = path.join(dataDir, 'admin_addresses.json');
+          let initialAddrs = DEFAULT_DEPOSIT_ADDRESSES;
+          if (fs.existsSync(addrFile)) {
+            try {
+              initialAddrs = { ...DEFAULT_DEPOSIT_ADDRESSES, ...JSON.parse(fs.readFileSync(addrFile, 'utf-8')) };
+            } catch {}
+          }
+          for (const [net, addr] of Object.entries(initialAddrs)) {
+            await db.execute({
+              sql: `INSERT OR REPLACE INTO admin_addresses (network, address) VALUES (?, ?)`,
+              args: [net, addr],
+            });
+          }
+
+          // Seed Pricing Settings
+          const pricingFile = path.join(dataDir, 'pricing_settings.json');
+          let initialPricing = DEFAULT_PRICING_SETTINGS;
+          if (fs.existsSync(pricingFile)) {
+            try {
+              initialPricing = { ...DEFAULT_PRICING_SETTINGS, ...JSON.parse(fs.readFileSync(pricingFile, 'utf-8')) };
+            } catch {}
+          }
+          await db.execute({
+            sql: `INSERT OR REPLACE INTO pricing_settings (id, data) VALUES ('main', ?)`,
+            args: [JSON.stringify(initialPricing)],
+          });
+
+          // Seed Users
+          const usersFile = path.join(dataDir, 'users.json');
+          let initialUsers: any[] = [];
+          if (fs.existsSync(usersFile)) {
+            try {
+              const raw = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
+              if (Array.isArray(raw)) initialUsers = raw;
+            } catch {}
+          }
+
+          // Ensure owner exists
+          const hasOwner = initialUsers.some((u) => String(u.tgId) === String(ADMIN_ID));
+          if (!hasOwner) {
+            initialUsers.unshift({
+              id: `user-${ADMIN_ID}`,
+              tgId: String(ADMIN_ID),
+              name: 'Ahmad',
+              username: '',
+              plan: 'enterprise',
+              extractsCount: 0,
+              totalExtractedUsd: 0,
+              status: 'ACTIVE',
+              joinedAt: 'System Owner',
+              lastActive: new Date().toISOString(),
+              lang: 'en',
+            });
+          }
+
+          for (const u of initialUsers) {
+            if (!u.tgId) continue;
+            await db.execute({
+              sql: `INSERT OR REPLACE INTO users (id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang, limitResetAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [
+                u.id || `user-${u.tgId}`,
+                String(u.tgId),
+                u.name || 'User',
+                u.username || '',
+                u.plan || 'community',
+                Number(u.extractsCount || 0),
+                Number(u.totalExtractedUsd || 0),
+                u.status || 'ACTIVE',
+                u.joinedAt || new Date().toISOString(),
+                u.lastActive || new Date().toISOString(),
+                u.lang || 'en',
+                u.limitResetAt || null,
+              ],
+            });
+          }
+
+          // Seed Referrals
+          const refFile = path.join(dataDir, 'referrals.json');
+          if (fs.existsSync(refFile)) {
+            try {
+              const refData = JSON.parse(fs.readFileSync(refFile, 'utf-8'));
+              if (Array.isArray(refData.referrals)) {
+                for (const r of refData.referrals) {
+                  if (!r.referredTgId) continue;
+                  await db.execute({
+                    sql: `INSERT OR REPLACE INTO referrals (id, referrerTgId, referredTgId, referredName, referredUsername, joinedAt, plan, earnedUsd)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [
+                      r.id || `ref-${r.referredTgId}`,
+                      String(r.referrerTgId),
+                      String(r.referredTgId),
+                      r.referredName || '',
+                      r.referredUsername || '',
+                      r.joinedAt || new Date().toISOString(),
+                      r.plan || 'community',
+                      Number(r.earnedUsd || 0),
+                    ],
+                  });
+                }
+              }
+            } catch {}
+          }
+
+          // Seed Used Hashes
+          const hashFile = path.join(dataDir, 'used_hashes.json');
+          if (fs.existsSync(hashFile)) {
+            try {
+              const hashes = JSON.parse(fs.readFileSync(hashFile, 'utf-8'));
+              if (Array.isArray(hashes)) {
+                for (const h of hashes) {
+                  const hashStr = typeof h === 'string' ? h : h.hash;
+                  if (!hashStr) continue;
+                  await db.execute({
+                    sql: `INSERT OR IGNORE INTO used_hashes (hash, plan, cycle, network, amountUsd, timestamp, date)
+                          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    args: [
+                      hashStr.toLowerCase().trim(),
+                      h.plan || 'pro',
+                      h.cycle || 'weekly',
+                      h.network || 'TRON',
+                      Number(h.amountUsd || 0),
+                      Number(h.timestamp || Date.now()),
+                      h.date || new Date().toISOString(),
+                    ],
+                  });
+                }
+              }
+            } catch {}
+          }
+
+          console.log('[DB] Seeding completed successfully!');
+        }
+      } catch (err: any) {
+        console.error('[DB] Seeding error:', err?.message || err);
+      }
+
+      return true;
+    } catch (batchErr: any) {
+      console.error('[DB] Schema creation error:', batchErr?.message || batchErr);
+      globalThis._dbInitialized = undefined;
+      throw batchErr;
+    }
   })();
 
   return globalThis._dbInitialized;
+}
+
+export async function checkDbHealth(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+  const start = Date.now();
+  try {
+    await initDb();
+    const db = getDbClient();
+    await db.execute('SELECT 1');
+    return { ok: true, latencyMs: Date.now() - start };
+  } catch (err: any) {
+    globalThis._dbInitialized = undefined;
+    return { ok: false, latencyMs: Date.now() - start, error: err?.message || String(err) };
+  }
 }
 
 // User Helpers

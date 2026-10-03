@@ -23,7 +23,7 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
     <div className="grid grid-cols-2 gap-3 w-full px-4 mb-3">
       {/* CARD 1: WALLET FOUND */}
       <div
-        className={`glass-card-elevated rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-all duration-300 ${
+        className={`glass-card-elevated rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-colors duration-150 ${
           isMatched
             ? 'border-[#00E676]/40 shadow-[0_12px_28px_-6px_rgba(0,230,118,0.25)]'
             : isLost
@@ -73,7 +73,7 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
         <div className="flex items-baseline">
           <span
-            className={`font-mono text-base sm:text-lg font-bold truncate transition-all duration-300 ${
+            className={`font-mono text-base sm:text-lg font-bold truncate ${
               isMatched
                 ? 'text-[#00E676] drop-shadow-[0_0_8px_rgba(0,230,118,0.4)]'
                 : isLost
@@ -120,7 +120,7 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
       {/* CARD 2: PRIVATE KEY */}
       <div
-        className={`glass-card-elevated rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-all duration-300 ${
+        className={`glass-card-elevated rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-colors duration-150 ${
           isMatched
             ? 'border-[#22D3EE]/40 shadow-[0_12px_28px_-6px_rgba(34,211,238,0.25)]'
             : isLost
@@ -170,7 +170,7 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
         <div className="flex items-baseline">
           <span
-            className={`font-mono text-base sm:text-lg font-bold truncate transition-all duration-300 ${
+            className={`font-mono text-base sm:text-lg font-bold truncate ${
               isMatched
                 ? 'text-[#38E8FF] drop-shadow-[0_0_8px_rgba(56,232,255,0.4)]'
                 : isLost

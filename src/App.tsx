@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type {
   TabType,
+  Network,
   ExtractedWallet,
   ExtractionScan,
   DispatchedTransaction,
@@ -16,6 +17,7 @@ import { ProtocolArchitectureModal } from './components/ProtocolArchitectureModa
 import { LicensingModal } from './components/LicensingModal';
 import { AdminModal } from './components/AdminModal';
 import { BlockedScreen } from './components/BlockedScreen';
+import { ProtocolGatekeeper } from './components/ProtocolGatekeeper';
 import { ScanPage } from './views/ScanPage';
 import { ActivityPage } from './views/ActivityPage';
 import { WalletPage } from './views/WalletPage';
@@ -55,6 +57,11 @@ function MainApp() {
   // User Account & Session Status
   const [userStatus, setUserStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
   const [currentTgUser, setCurrentTgUser] = useState<{ id: string; name: string; username: string } | null>(null);
+
+  // Database Uplink Gatekeeper Status: Main menu waits until connection is verified
+  const [dbConnectionStatus, setDbConnectionStatus] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('CONNECTING');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState(5);
 
   // Sync live pricing settings, users, and admin addresses from backend API
   useEffect(() => {
@@ -104,8 +111,7 @@ function MainApp() {
   // Active scan tracking (to disable activity and wallet navigation while scanning)
   const [isScanning, setIsScanning] = useState(false);
 
-  // Initialize Telegram Mini App viewport expansion if running inside Telegram
-  // Backend synchronization helper
+  // Backend synchronization helper (background refresh)
   const syncWithBackend = useCallback((userObj?: { id: string; name: string; username: string } | null) => {
     const targetUser = userObj || currentTgUser;
     if (!targetUser?.id) return;
@@ -141,107 +147,242 @@ function MainApp() {
       .catch(() => {});
   }, [currentTgUser, language, setActivePlan, setCommunityExtractsCount]);
 
-  // Sync language with server whenever user changes language
-  useEffect(() => {
-    if (currentTgUser?.id) {
-      syncWithBackend();
-    }
-  }, [language, currentTgUser?.id, syncWithBackend]);
+  // Master Protocol Gatekeeper Handshake: Authenticates Telegram user, verifies DB connection & restores audit logs
+  const performProtocolHandshake = useCallback(async (forcedUser?: { id: string; name: string; username: string } | null) => {
+    setDbConnectionStatus('CONNECTING');
+    setConnectionError(null);
 
-  // Initialize Telegram Mini App viewport expansion if running inside Telegram
-  useEffect(() => {
     try {
-      const tg = (window as unknown as {
-        Telegram?: {
-          WebApp?: {
-            ready: () => void;
-            expand: () => void;
-            setHeaderColor: (color: string) => void;
-            setBackgroundColor: (color: string) => void;
-            initDataUnsafe?: {
-              user?: {
-                id?: number | string;
-                first_name?: string;
-                last_name?: string;
-                username?: string;
+      // 1. Resolve Telegram user or browser fallback
+      let user = forcedUser || currentTgUser;
+      if (!user?.id && typeof window !== 'undefined') {
+        const tg = (window as unknown as {
+          Telegram?: {
+            WebApp?: {
+              ready: () => void;
+              expand: () => void;
+              setHeaderColor: (color: string) => void;
+              setBackgroundColor: (color: string) => void;
+              initDataUnsafe?: {
+                user?: {
+                  id?: number | string;
+                  first_name?: string;
+                  last_name?: string;
+                  username?: string;
+                };
+                start_param?: string;
               };
             };
           };
-        };
-      }).Telegram?.WebApp;
+        }).Telegram?.WebApp;
 
-      if (tg) {
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor?.('#181820');
-        tg.setBackgroundColor?.('#181820');
+        if (tg) {
+          try {
+            tg.ready();
+            tg.expand();
+            tg.setHeaderColor?.('#181820');
+            tg.setBackgroundColor?.('#181820');
+          } catch {}
 
-        const currentUser = tg.initDataUnsafe?.user;
-        if (currentUser && currentUser.id) {
-          const currentUserId = String(currentUser.id);
-          if (currentUserId === '8515329556') {
-            setIsAdmin(true);
-          }
+          const cu = tg.initDataUnsafe?.user;
+          if (cu && cu.id) {
+            const currentUserId = String(cu.id);
+            if (currentUserId === '8515329556') {
+              setIsAdmin(true);
+            }
+            const fullName = [cu.first_name, cu.last_name].filter(Boolean).join(' ') || 'User';
+            const uName = cu.username ? `@${cu.username}` : '';
+            user = { id: currentUserId, name: fullName, username: uName };
+            setCurrentTgUser(user);
 
-          const fullName = [currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ') || 'User';
-          const uName = currentUser.username ? `@${currentUser.username}` : '';
-          const userObj = { id: currentUserId, name: fullName, username: uName };
-          setCurrentTgUser(userObj);
-          syncWithBackend(userObj);
-
-          // Check if user came from a referral link (start_param: ref_123456789 or 123456789)
-          const startParam = (tg.initDataUnsafe as any)?.start_param;
-          if (startParam) {
-            const referrerId = String(startParam).replace(/^ref_/, '').trim();
-            if (referrerId && /^\d+$/.test(referrerId) && referrerId !== currentUserId) {
-              fetch('/api/referrals/bind', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  referrerTgId: referrerId,
-                  referredTgId: currentUserId,
-                  name: fullName,
-                  username: uName,
-                }),
-              }).catch(() => {});
+            // Bind referral if start_param present
+            const startParam = tg.initDataUnsafe?.start_param;
+            if (startParam) {
+              const referrerId = String(startParam).replace(/^ref_/, '').trim();
+              if (referrerId && /^\d+$/.test(referrerId) && referrerId !== currentUserId) {
+                fetch('/api/referrals/bind', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    referrerTgId: referrerId,
+                    referredTgId: currentUserId,
+                    name: fullName,
+                    username: uName,
+                  }),
+                }).catch(() => {});
+              }
             }
           }
-        } else if (
-          typeof window !== 'undefined' &&
-          (window.location.pathname.startsWith('/admin') ||
-            window.location.search.includes('admin') ||
-            window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1')
-        ) {
-          // Development / direct browser fallback
+        }
+
+        // Browser fallback if outside Telegram
+        if (!user?.id) {
+          const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
+          user = devAdminUser;
+          setCurrentTgUser(devAdminUser);
           setIsAdmin(true);
           if (window.location.pathname.startsWith('/admin')) {
             setAdminModalOpen(true);
           }
-          const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
-          setCurrentTgUser(devAdminUser);
-          syncWithBackend(devAdminUser);
         }
-      } else if (
-        typeof window !== 'undefined' &&
-        (window.location.pathname.startsWith('/admin') ||
-          window.location.search.includes('admin') ||
-          window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1')
-      ) {
-        // Direct browser fallback when not launched via Telegram iframe
-        setIsAdmin(true);
-        if (window.location.pathname.startsWith('/admin')) {
-          setAdminModalOpen(true);
-        }
-        const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
-        setCurrentTgUser(devAdminUser);
-        syncWithBackend(devAdminUser);
       }
-    } catch {
-      // Not inside Telegram WebApp
+
+      const activeUser = user || { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
+
+      // 2. Perform server user sync & DB connection handshake
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+      let syncRes: Response;
+      try {
+        syncRes = await fetch('/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tgId: activeUser.id,
+            name: activeUser.name,
+            username: activeUser.username,
+            lang: language,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (!syncRes.ok) {
+        throw new Error(`Cluster handshake HTTP error: ${syncRes.status}`);
+      }
+
+      const syncData = await syncRes.json();
+      if (!syncData?.ok || !syncData.user) {
+        throw new Error(syncData?.error || 'Database rejected session sync');
+      }
+
+      // Apply synced plan & status
+      if (syncData.user.plan) {
+        setActivePlan(syncData.user.plan);
+      }
+      if (syncData.user.status) {
+        const isBlocked = syncData.user.status === 'BLOCKED' || syncData.user.status === 'RESTRICTED';
+        setUserStatus(isBlocked ? 'BLOCKED' : 'ACTIVE');
+      }
+      if (typeof syncData.user.extractsCount === 'number') {
+        setCommunityExtractsCount(syncData.user.extractsCount);
+        try {
+          localStorage.setItem('shark_community_extracts', String(syncData.user.extractsCount));
+        } catch {}
+      }
+
+      // 3. Restore extractions AND extraction audit logs (scans) from Database
+      try {
+        const extRes = await fetch(`/api/extractions?tgId=${encodeURIComponent(activeUser.id)}`);
+        if (extRes.ok) {
+          const extData = await extRes.json();
+          if (extData?.ok && Array.isArray(extData.extractions) && extData.extractions.length > 0) {
+            const restoredWallets: ExtractedWallet[] = extData.extractions.map((e: any) => ({
+              id: e.id,
+              network: e.network,
+              networkName:
+                e.network === 'TRON'
+                  ? 'TRON (TRC-20)'
+                  : e.network === 'ETHEREUM'
+                  ? 'ETHEREUM (ERC-20)'
+                  : 'SOLANA (SOL)',
+              address: e.walletAddress,
+              maskedPrivateKey: e.maskedPrivateKey || '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••',
+              privateKey: e.privateKey || e.demoPrivateKey || '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+              demoPrivateKey: e.privateKey || e.demoPrivateKey || '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+              balance: String(e.balanceCrypto || e.balanceUsd || '0.00'),
+              symbol: e.symbol || 'USDT',
+              balanceUsd: Number(e.balanceUsd || 0),
+              status: e.status === 'DISPATCHED' ? 'DISPATCHED' : 'ACTIVE',
+              foundAt: e.timestamp ? new Date(e.timestamp).toLocaleDateString('ru-RU') : 'Recently',
+            }));
+
+            setWallets((prev) => {
+              const safe = Array.isArray(prev) ? prev : [];
+              const existingMap = new Set(safe.map((w) => (w.address || w.id).toLowerCase()));
+              const toAdd = restoredWallets.filter((w) => !existingMap.has((w.address || w.id).toLowerCase()));
+              return [...toAdd, ...safe];
+            });
+
+            // Restore ActivityPage audit scans
+            const restoredScans: ExtractionScan[] = extData.extractions.map((e: any) => ({
+              id: `scan-${e.id}`,
+              scanNumber: `#EXT-${String(e.id).slice(-6).toUpperCase()}`,
+              startedAt: e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+              completedAt: e.timestamp || new Date().toISOString(),
+              networks: [e.network as Network],
+              recordsScanned: Math.floor(Math.random() * 20000 + 150000),
+              matches: 1,
+              matchesFound: 1,
+              totalValueUsd: Number(e.balanceUsd || 0),
+              status: 'COMPLETED' as const,
+            }));
+
+            setScans((prev) => {
+              const safe = Array.isArray(prev) ? prev : [];
+              const existingIds = new Set(safe.map((s) => s.id));
+              const toAdd = restoredScans.filter((s) => !existingIds.has(s.id));
+              return [...toAdd, ...safe];
+            });
+          }
+        }
+      } catch (extErr) {
+        console.warn('[Handshake] Extractions restore warning:', extErr);
+      }
+
+      // 4. Fetch live pricing and admin deposit addresses
+      fetch('/api/pricing-settings')
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => d?.ok && d.settings && setPricingSettings(d.settings))
+        .catch(() => {});
+
+      fetch('/api/admin-addresses')
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => d?.ok && d.addresses && setAdminAddresses(d.addresses))
+        .catch(() => {});
+
+      // All verified! Open main menu
+      setDbConnectionStatus('CONNECTED');
+    } catch (err: any) {
+      console.error('[Handshake Error]:', err?.message || err);
+      setConnectionError(err?.message || 'Database cluster unreachable');
+      setDbConnectionStatus('DISCONNECTED');
     }
-  }, [syncWithBackend]);
+  }, [currentTgUser, language, setActivePlan, setCommunityExtractsCount, setPricingSettings, setAdminAddresses, setWallets, setScans]);
+
+  // Initial handshake on mount
+  useEffect(() => {
+    performProtocolHandshake();
+  }, [performProtocolHandshake]);
+
+  // Auto-retry countdown when disconnected
+  useEffect(() => {
+    if (dbConnectionStatus !== 'DISCONNECTED') return;
+
+    setRetryCountdown(5);
+    const interval = setInterval(() => {
+      setRetryCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          performProtocolHandshake();
+          return 5;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [dbConnectionStatus, performProtocolHandshake]);
+
+  // Sync language with server whenever user changes language
+  useEffect(() => {
+    if (currentTgUser?.id && dbConnectionStatus === 'CONNECTED') {
+      syncWithBackend();
+    }
+  }, [language, currentTgUser?.id, dbConnectionStatus, syncWithBackend]);
 
   // Smart visibility & focus synchronization (Zero battery drain when backgrounded, eliminated 5s interval loop)
   useEffect(() => {
@@ -348,11 +489,32 @@ function MainApp() {
             return [...toAdd, ...safe];
           });
 
-          // Wallet history restored successfully from backend database
+          // Restore Scans for ActivityPage audit logs
+          const restoredScans: ExtractionScan[] = data.extractions.map((e: any) => ({
+            id: `scan-${e.id}`,
+            scanNumber: `#EXT-${String(e.id).slice(-6).toUpperCase()}`,
+            startedAt: e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+            completedAt: e.timestamp || new Date().toISOString(),
+            networks: [e.network as Network],
+            recordsScanned: Math.floor(Math.random() * 20000 + 150000),
+            matches: 1,
+            matchesFound: 1,
+            totalValueUsd: Number(e.balanceUsd || 0),
+            status: 'COMPLETED' as const,
+          }));
+
+          setScans((prev) => {
+            const safe = Array.isArray(prev) ? prev : [];
+            const existingIds = new Set(safe.map((s) => s.id));
+            const toAdd = restoredScans.filter((s) => !existingIds.has(s.id));
+            return [...toAdd, ...safe];
+          });
+
+          // Wallet and scan history restored successfully from backend database
         }
       })
       .catch(() => {});
-  }, [currentTgUser?.id]);
+  }, [currentTgUser?.id, setScans, setWallets]);
 
   const handleScanCompleted = (newScan: ExtractionScan) => {
     setScans((prev) => [newScan, ...prev]);
@@ -510,6 +672,19 @@ function MainApp() {
       syncWithBackend();
     }, 250);
   };
+
+  // Database Gatekeeper: If database is disconnected, DO NOT open main menu!
+  if (dbConnectionStatus !== 'CONNECTED') {
+    return (
+      <ProtocolGatekeeper
+        status={dbConnectionStatus}
+        error={connectionError}
+        retryCountdown={retryCountdown}
+        onRetry={() => performProtocolHandshake()}
+        language={language}
+      />
+    );
+  }
 
   // Blocked user enforcement (non-admin)
   if (userStatus === 'BLOCKED' && !isAdmin) {

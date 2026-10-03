@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { TerminalLog, ScanState, ExtractedWallet } from '../types';
 import { useParallax } from '../hooks/useParallax';
 import { Terminal as TerminalIcon, Sparkles } from 'lucide-react';
@@ -26,20 +26,14 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
   const isScanning = scanState === 'SCANNING' || scanState === 'INITIALIZING' || scanState === 'GENERATING' || scanState === 'CONNECTING';
   const isMatchFound = scanState === 'MATCH_FOUND';
 
-  // Synchronous auto-scroll right on DOM commit — zero rAF delay, zero gesture dependency
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [logs]);
-
-  // Secondary guarantee post-paint to keep pinned even if fonts or line breaks settle
+  // Smooth rAF auto-scroll on frame commit — avoids synchronous DOM layout recalculation
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) {
+    if (!el) return;
+    const rafId = requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
-    }
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [logs]);
 
   // Completely eliminate 3D compositor detachment during active scanning stream
