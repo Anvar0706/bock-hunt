@@ -8,17 +8,23 @@ declare global {
   var _dbInitialized: Promise<boolean> | undefined;
 }
 
+const FALLBACK_TURSO_URL = 'libsql://blockhunt-db-anvarjon515.aws-ap-south-1.turso.io';
+const FALLBACK_TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTEwMjAyNzcsImlkIjoiMDFhMTAxMTktYjAwMS03YTI0LThjYzMtNGNmNWJiMzA3N2NhIiwia2lkIjoiZEdmSUc2c0xnTkc3MzdaOG4wSG1vRC00cG8tZHV3Rzh1bnlZbjEzc3dSMCIsInJpZCI6IjRlMzU0NjJjLTViMDQtNGNmYS1iMGI3LTMzN2MyN2ZhYThiNSJ9.TARKo0WJZR2jodRSpiTjHJvRaiwj_qwnN3jw-nP4WoZTFp9XcQOqz40lJSTyvIGCc0yuWFAf0UrNgFopqFZaDw';
+
 export function getDbClient(): Client {
   if (!globalThis._libsqlClient) {
+    const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production');
+
     const rawUrl =
       process.env.TURSO_DATABASE_URL ||
       process.env.DATABASE_URL ||
-      'file:./data/database.sqlite';
+      (isServerless ? FALLBACK_TURSO_URL : 'file:./data/database.sqlite');
     const dbUrl = rawUrl.trim();
+
     const rawToken =
       process.env.TURSO_AUTH_TOKEN ||
       process.env.DATABASE_AUTH_TOKEN ||
-      undefined;
+      (isServerless ? FALLBACK_TURSO_TOKEN : undefined);
     const authToken = rawToken ? rawToken.trim() : undefined;
 
     // If local file path, ensure directory exists
