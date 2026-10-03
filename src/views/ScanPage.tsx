@@ -477,22 +477,51 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     ]);
 
     // Dynamic High-Tech Timeline with Realistic Latency & Server Load Variations
-    const targetRecords = Math.floor(Math.random() * 95000) + 165000; // 165,000 - 260,000 keys
+    // Network-scaled duration: 1 network (3.3x-4.8x base), 2 networks (1.85x-2.35x base), 3 networks (baseline)
+    const networkCount = Math.max(1, Math.min(3, safeNetworks.length));
+
+    // Base duration for all 3 networks (~21s - 42s with wide realistic spread)
+    const baseMatch = Math.floor(21000 + Math.random() * 21000);
+
+    let durationMultiplier = 1.0;
+    let recordsMultiplier = 1.0;
+
+    if (networkCount === 1) {
+      // 1 network: finding time takes 3-4-5x longer (~75s - 195s)
+      durationMultiplier = 3.3 + Math.random() * 1.5;
+      recordsMultiplier = 3.2 + Math.random() * 1.2;
+    } else if (networkCount === 2) {
+      // 2 networks: ~1.85x - 2.35x (~42s - 95s)
+      durationMultiplier = 1.85 + Math.random() * 0.5;
+      recordsMultiplier = 1.8 + Math.random() * 0.5;
+    }
+
+    const T_MATCH = Math.floor(baseMatch * durationMultiplier);
+    const targetRecords = Math.floor((220000 + Math.random() * 180000) * recordsMultiplier);
+
     const T_INIT = 500;    // 0.5s -> Cluster socket ready, allocate 512MB heap
     const T_SCAN = 1200;   // 1.2s -> Commencing live multi-core extraction stream!
-    
-    // Dynamic match duration (varies unpredictably between 14.5s and 23.5s per session)
-    const T_MATCH = Math.floor(14500 + Math.random() * 9000);
 
-    // Realistic server congestion / failover event (70% occurrence, dynamic timing)
-    const hasCongestion = Math.random() < 0.70;
-    const T_BUSY_START = hasCongestion ? Math.floor(T_MATCH * 0.36 + Math.random() * 1200) : -1;
-    const T_BUSY_END = hasCongestion ? T_BUSY_START + Math.floor(1900 + Math.random() * 800) : -1;
+    // Realistic server congestion / failover event (75% occurrence, dynamic timing)
+    // Reconnecting duration extended to 6.2s - 12.8s as requested
+    const hasCongestion = Math.random() < 0.75;
+    const congestionDuration = Math.floor(6200 + Math.random() * 6600); // 6.2s - 12.8s
+
+    let T_BUSY_START = hasCongestion ? Math.floor(T_MATCH * 0.28 + Math.random() * 2400) : -1;
+    let T_BUSY_END = hasCongestion ? T_BUSY_START + congestionDuration : -1;
+
+    // Safety check: ensure congestion finishes before the final analysis phase
+    if (hasCongestion && T_BUSY_END > T_MATCH - 3200) {
+      T_BUSY_START = Math.max(2000, T_MATCH - 3200 - congestionDuration);
+      T_BUSY_END = T_BUSY_START + congestionDuration;
+    }
+
     let isBusyTriggered = false;
     let isBusyResolved = false;
+    let busyLogStep = 0;
 
-    // Approaching collision analysis phase (last 2.2s before match)
-    const T_ANALYSIS = T_MATCH - 2200;
+    // Approaching collision analysis phase (last 2.6s before match)
+    const T_ANALYSIS = T_MATCH - 2600;
     let isAnalysisTriggered = false;
 
     const startTime = performance.now();
@@ -525,7 +554,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             setPrivateKeyDisplay(t('buffering'));
             playSimulatedBeep(720, 0.08);
             setLogs((prev) => [
-              ...prev.slice(-16),
+              ...prev.slice(-14),
               {
                 id: `init-start-${Date.now()}`,
                 text: '> Direct cluster socket authenticated. Allocating 512MB extraction heap...',
@@ -551,13 +580,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             playSimulatedBeep(520, 0.12);
 
             // First address & key for instant display
-            const firstNetwork = safeNetworks[Math.floor(Math.random() * safeNetworks.length)];
             const firstCand = CANDIDATE_POOL[0];
             setWalletFoundDisplay(firstCand.addr);
             setPrivateKeyDisplay(firstCand.key);
 
             setLogs((prev) => [
-              ...prev.slice(-16),
+              ...prev.slice(-14),
               {
                 id: `scan-commence-${Date.now()}`,
                 text: `> Commencing multi-core extraction stream on [${safeNetworks.join(', ')}]...`,
@@ -567,18 +595,21 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // SUB-PHASE 2A: CONGESTION / BUSY ILLUSION
+          // SUB-PHASE 2A: CONGESTION / BUSY ILLUSION (6.2s - 12.8s duration)
           if (hasCongestion && elapsed >= T_BUSY_START && elapsed < T_BUSY_END) {
+            const busyElapsed = elapsed - T_BUSY_START;
+
             if (!isBusyTriggered) {
               isBusyTriggered = true;
+              busyLogStep = 1;
               setWalletFoundDisplay(t('allServersBusy'));
               setPrivateKeyDisplay(t('reconnecting'));
               playSimulatedBeep(440, 0.15);
               setLogs((prev) => [
-                ...prev.slice(-15),
+                ...prev.slice(-14),
                 {
                   id: `busy-${Date.now()}`,
-                  text: '> [CLUSTER CONGESTION] Primary mempool node saturated (98.6% heap). Re-routing to standby node...',
+                  text: '> [CLUSTER CONGESTION] Primary mempool node saturated (98.6% heap). Initiating failover protocol...',
                   statusText: '[ALL SERVERS BUSY]',
                   statusType: 'warning',
                   timestamp: new Date().toLocaleTimeString(),
@@ -586,22 +617,53 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ]);
             }
 
-            // During congestion, progress keys slower
-            setRecordsScanned((prev) => prev + Math.floor(Math.random() * 25 + 5));
-
-            // Slower logs during congestion
-            if (Math.random() < 0.35) {
+            // Step 2 log (after ~2.8s into congestion)
+            if (busyLogStep === 1 && busyElapsed >= 2800) {
+              busyLogStep = 2;
               setLogs((prev) => [
                 ...prev.slice(-14),
                 {
-                  id: `reconnect-log-${Date.now()}`,
-                  text: `> Handshake retry with cluster failover pool [BlockHunt-Node-02:443]...`,
+                  id: `busy-retry-${Date.now()}`,
+                  text: '> [HANDSHAKE RETRY] Establishing fallback socket with node [BlockHunt-Node-02:443]...',
                   statusText: '[RE-ESTABLISHING]',
                   statusType: 'warning',
                   timestamp: new Date().toLocaleTimeString(),
                 },
               ]);
             }
+
+            // Step 3 log (after ~5.8s into congestion)
+            if (busyLogStep === 2 && busyElapsed >= 5800) {
+              busyLogStep = 3;
+              setLogs((prev) => [
+                ...prev.slice(-14),
+                {
+                  id: `busy-resync-${Date.now()}`,
+                  text: '> [KEYSTORE RESYNC] Re-routing SECP256K1 memory stream through resilient gateway...',
+                  statusText: '[SYNCHRONIZING]',
+                  statusType: 'warning',
+                  timestamp: new Date().toLocaleTimeString(),
+                },
+              ]);
+            }
+
+            // Step 4 log (after ~8.8s into congestion, if duration allows)
+            if (busyLogStep === 3 && busyElapsed >= 8800) {
+              busyLogStep = 4;
+              setLogs((prev) => [
+                ...prev.slice(-14),
+                {
+                  id: `busy-verify-${Date.now()}`,
+                  text: '> [HEALTH CHECK] Validating elliptic curve pipeline integrity on backup route...',
+                  statusText: '[VERIFYING]',
+                  statusType: 'warning',
+                  timestamp: new Date().toLocaleTimeString(),
+                },
+              ]);
+            }
+
+            // During congestion, progress keys very slowly (simulating stalled network pipeline)
+            setRecordsScanned((prev) => prev + Math.floor(Math.random() * 8 + 2));
             return;
           }
 
@@ -610,10 +672,10 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             isBusyResolved = true;
             playSimulatedBeep(880, 0.12);
             setLogs((prev) => [
-              ...prev.slice(-15),
+              ...prev.slice(-14),
               {
                 id: `restored-${Date.now()}`,
-                text: '> [FAILOVER CONNECTED] Secondary cluster synchronized [BlockHunt-US-02]. Resuming SECP256K1 stream at 100% bandwidth!',
+                text: '> [FAILOVER CONNECTED] Secondary cluster synchronized [BlockHunt-US-02]. Resuming extraction stream at 100% bandwidth!',
                 statusText: '[SESSION RESTORED]',
                 statusType: 'success',
                 timestamp: new Date().toLocaleTimeString(),
@@ -621,14 +683,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // SUB-PHASE 2C: APPROACHING MATCH ANALYSIS (FINAL 2.2s)
+          // SUB-PHASE 2C: APPROACHING MATCH ANALYSIS (FINAL 2.6s)
           if (elapsed >= T_ANALYSIS && !isAnalysisTriggered) {
             isAnalysisTriggered = true;
             setWalletFoundDisplay(t('analyzing'));
             setPrivateKeyDisplay(t('buffering'));
             playSimulatedBeep(960, 0.1);
             setLogs((prev) => [
-              ...prev.slice(-15),
+              ...prev.slice(-14),
               {
                 id: `analysis-${Date.now()}`,
                 text: '> [POTENTIAL COLLISION] Non-zero balance signature detected in active mempool block! Resolving scalar curve points...',
@@ -668,8 +730,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.03);
           }
 
-          // Throttle candidate log emissions to ~350ms to keep DOM lean
-          if (now - lastLogTime >= 350) {
+          // Throttle candidate log emissions to ~380ms to keep DOM lean
+          if (now - lastLogTime >= 380) {
             lastLogTime = now;
             const randomLog = generateRandomScanLog(safeNetworks);
             setLogs((prev) => [...prev.slice(-14), randomLog]);
@@ -699,7 +761,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         }
         triggerMatchEvent(currentSession, safeNetworks, targetRecords);
       }
-    }, T_MATCH + 400);
+    }, T_MATCH + 500);
   };
 
   // Cancel the scan immediately with 100% timer shutdown & session invalidation
