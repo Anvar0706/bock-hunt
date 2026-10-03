@@ -160,13 +160,22 @@ export async function verifyOnChainPayment(params: {
       };
     }
 
-    // Mark hash as used on success
-    await markHashUsed(cleanHash, {
+    // Mark hash as used on success (atomic insert check)
+    const marked = await markHashUsed(cleanHash, {
       plan: targetPlan,
       cycle: targetCycle,
       network: 'TRON',
       amountUsd: minUsd,
     });
+    if (!marked) {
+      return {
+        ok: false,
+        error: isRu
+          ? 'Этот хэш транзакции уже был использован!'
+          : 'This transaction hash has already been claimed! (Double-spend attempt rejected).',
+        logs: [...logs, `> [DUPLICATE] Transaction hash ${cleanHash.slice(0, 12)}... already claimed`],
+      };
+    }
 
     logs.push(`> [SUCCESS] Transaction verified on TRON network!`);
     return {
@@ -235,12 +244,22 @@ export async function verifyOnChainPayment(params: {
       };
     }
 
-    await markHashUsed(cleanHash, {
+    // Mark hash as used on success (atomic insert check)
+    const marked = await markHashUsed(cleanHash, {
       plan: targetPlan,
       cycle: targetCycle,
       network: 'ETHEREUM',
       amountUsd: minUsd,
     });
+    if (!marked) {
+      return {
+        ok: false,
+        error: isRu
+          ? 'Этот хэш транзакции уже был использован!'
+          : 'This transaction hash has already been claimed! (Double-spend attempt rejected).',
+        logs: [...logs, `> [DUPLICATE] Transaction hash ${cleanHash.slice(0, 12)}... already claimed`],
+      };
+    }
 
     logs.push(`> [SUCCESS] Transaction verified on Ethereum network!`);
     return {
@@ -306,12 +325,22 @@ export async function verifyOnChainPayment(params: {
       };
     }
 
-    await markHashUsed(cleanHash, {
+    // Mark hash as used on success (atomic insert check)
+    const marked = await markHashUsed(cleanHash, {
       plan: targetPlan,
       cycle: targetCycle,
       network: 'SOLANA',
       amountUsd: minUsd,
     });
+    if (!marked) {
+      return {
+        ok: false,
+        error: isRu
+          ? 'Этот хэш транзакции уже был использован!'
+          : 'This transaction hash has already been claimed! (Double-spend attempt rejected).',
+        logs: [...logs, `> [DUPLICATE] Transaction hash ${cleanHash.slice(0, 12)}... already claimed`],
+      };
+    }
 
     logs.push(`> [SUCCESS] Transaction verified on Solana network!`);
     return {

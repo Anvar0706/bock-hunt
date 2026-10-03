@@ -58,7 +58,10 @@ function MainApp() {
 
   // Sync live pricing settings, users, and admin addresses from backend API
   useEffect(() => {
-    fetch('/api/pricing-settings')
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    fetch('/api/pricing-settings', { signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.ok && data.settings) {
@@ -67,7 +70,7 @@ function MainApp() {
       })
       .catch(() => {});
 
-    fetch('/api/users')
+    fetch('/api/users', { signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.ok && Array.isArray(data.users) && data.users.length > 0) {
@@ -76,7 +79,7 @@ function MainApp() {
       })
       .catch(() => {});
 
-    fetch('/api/admin-addresses')
+    fetch('/api/admin-addresses', { signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.ok && data.addresses) {
@@ -84,6 +87,10 @@ function MainApp() {
         }
       })
       .catch(() => {});
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   // Persistent data in localStorage
@@ -228,25 +235,48 @@ function MainApp() {
     }
   }, [syncWithBackend]);
 
-  // Periodic background re-sync (to reflect admin plan promote/demote or block/unblock in real-time)
+  // Smart visibility & focus synchronization (Zero battery drain when backgrounded, eliminated 5s interval loop)
   useEffect(() => {
     if (!currentTgUser?.id) return;
-    const timer = setInterval(() => {
-      syncWithBackend();
-    }, 5000);
+
+    let lastSync = Date.now();
+    const triggerSyncThrottled = () => {
+      const now = Date.now();
+      // Minimum 4 seconds between focus/visibility syncs to avoid burst calls
+      if (now - lastSync >= 4000) {
+        lastSync = now;
+        syncWithBackend();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        triggerSyncThrottled();
+      }
+    };
 
     const onWindowFocus = () => {
-      syncWithBackend();
+      triggerSyncThrottled();
     };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', onWindowFocus);
 
+    // Gentle 60s background heartbeat only to keep plan/status updated during continuous active usage
+    const heartbeatTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        syncWithBackend();
+      }
+    }, 60000);
+
     return () => {
-      clearInterval(timer);
+      clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onWindowFocus);
     };
-  }, [currentTgUser, syncWithBackend]);
+  }, [currentTgUser?.id, syncWithBackend]);
 
-  // Purge legacy test mock users and fetch live server users
+  // Purge legacy test mock users
   useEffect(() => {
     setAdminUsers((prev) =>
       prev.filter(
@@ -261,15 +291,6 @@ function MainApp() {
           u.name !== 'Jasur Temirov'
       )
     );
-
-    fetch('/api/users')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.ok && Array.isArray(data.users)) {
-          setAdminUsers(data.users);
-        }
-      })
-      .catch(() => {});
   }, [setAdminUsers]);
 
   // Filter out legacy dummy mock wallets so only actual user extractions appear
@@ -351,10 +372,13 @@ function MainApp() {
 
     // Immediately increment communityExtractsCount synchronously
     if (activePlan === 'community') {
-      setCommunityExtractsCount((prev) => Math.max(prev + 1, 1));
-      try {
-        window.localStorage.setItem('shark_community_extracts', '1');
-      } catch {}
+      setCommunityExtractsCount((prev) => {
+        const next = Math.max(prev + 1, 1);
+        try {
+          window.localStorage.setItem('shark_community_extracts', String(next));
+        } catch {}
+        return next;
+      });
     }
 
     // Record extraction in backend database in real time
@@ -619,6 +643,7 @@ function MainApp() {
             pricingSettings={pricingSettings}
             onSavePricingSettings={(newPricing) => setPricingSettings(newPricing)}
             onResetUserLimit={handleResetUserLimit}
+            adminTgId={currentTgUser?.id || '8515329556'}
           />
         )}
       </div>

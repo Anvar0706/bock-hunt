@@ -12,7 +12,9 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
   scans,
   onClearHistory,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [visibleCount, setVisibleCount] = React.useState(10);
+  const displayedScans = React.useMemo(() => scans.slice(0, visibleCount), [scans, visibleCount]);
 
   return (
     <div className="w-full px-4 pb-24 animate-fadeIn">
@@ -60,7 +62,7 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {scans.map((scan) => (
+          {displayedScans.map((scan) => (
             <div
               key={scan.id}
               className="glass-card-elevated rounded-2xl p-4 relative overflow-hidden group transition-all duration-300 border-white/10 hover:border-[#22D3EE]/30"
@@ -133,6 +135,16 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
               </div>
             </div>
           ))}
+
+          {scans.length > visibleCount && (
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+              type="button"
+              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#9CA3AF] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors mt-2 cursor-pointer"
+            >
+              {language === 'ru' ? `Показать еще (+${Math.min(10, scans.length - visibleCount)})` : `Load More (+${Math.min(10, scans.length - visibleCount)})`}
+            </button>
+          )}
         </div>
       )}
     </div>

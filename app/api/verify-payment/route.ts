@@ -3,11 +3,18 @@ import { verifyOnChainPayment } from '@/lib/blockchain';
 import { updateUser, getUser, creditReferralCommission, getReferralStats } from '@/lib/db';
 import { notifyPaymentSuccess, notifyPaymentFailed, notifyAdmin, sendTelegramMessage } from '@/bot';
 import { getBotMsg } from '@/bot/messages';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`payment_verify:${ip}`, 10, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json({ ok: false, error: 'Too many verification attempts. Please wait.' }, { status: 429 });
+    }
+
     const body = await req.json();
     const {
       txHash,

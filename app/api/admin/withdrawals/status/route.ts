@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server';
-import { updateWithdrawalStatus, listWithdrawals, getUser } from '@/lib/db';
+import { updateWithdrawalStatus, listWithdrawals, getUser, logAudit } from '@/lib/db';
 import { sendTelegramMessage } from '@/bot';
 import { getBotMsg } from '@/bot/messages';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
+const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
+
 export async function POST(req: Request) {
   try {
-    const { id, status, txHash, note } = await req.json();
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`admin:withdrawals:${ip}`, 30, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please wait.' }, { status: 429 });
+    }
+
+    const { id, status, txHash, note, adminTgId } = await req.json();
+
+    const callerId = String(adminTgId || '').trim();
+    if (callerId !== ADMIN_ID) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized: Admin privileges required' }, { status: 403 });
+    }
 
     if (!id || (status !== 'PAID' && status !== 'REJECTED')) {
       return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
@@ -39,6 +53,8 @@ export async function POST(req: Request) {
         sendTelegramMessage(item.tgId, msg).catch(() => {});
       }
     }
+
+    await logAudit(callerId, 'update_withdrawal', item?.tgId, { withdrawalId: id, status, txHash, note });
 
     return NextResponse.json({ ok: true, status });
   } catch (err: any) {

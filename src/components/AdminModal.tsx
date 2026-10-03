@@ -45,6 +45,7 @@ interface AdminModalProps {
   pricingSettings?: PricingSettings;
   onSavePricingSettings?: (newSettings: PricingSettings) => void;
   onResetUserLimit?: (userId?: string) => void;
+  adminTgId?: string;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -57,6 +58,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   pricingSettings = DEFAULT_PRICING_SETTINGS,
   onSavePricingSettings,
   onResetUserLimit,
+  adminTgId = '8515329556',
 }) => {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'wallets' | 'pricing' | 'users' | 'withdrawals'>('wallets');
@@ -103,6 +105,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [copiedTgId, setCopiedTgId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [resetStatsConfirmId, setResetStatsConfirmId] = useState<string | null>(null);
+  const [visibleUsersCount, setVisibleUsersCount] = useState(25);
   const initialUsersSyncedRef = useRef(false);
 
   // Broadcast & Direct Message state
@@ -183,7 +186,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const res = await fetch('/api/admin/withdrawals/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status, txHash, note }),
+        body: JSON.stringify({ id, status, txHash, note, adminTgId }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -203,10 +206,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // Tab-aware data fetching (only fetch what is needed for the active tab)
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    if (activeTab === 'users') {
       fetchLiveUsers();
+    } else if (activeTab === 'withdrawals') {
       fetchWithdrawals();
+    } else if (activeTab === 'pricing') {
       fetchLivePricing();
     }
   }, [isOpen, activeTab]);
@@ -216,7 +223,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const res = await fetch('/api/pricing-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pricingForm),
+        body: JSON.stringify({ ...pricingForm, adminTgId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -242,7 +249,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const res = await fetch('/api/users/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, adminTgId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -457,6 +464,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         body: JSON.stringify({
           target: targetParam,
           message: broadcastText.trim(),
+          adminTgId,
         }),
       });
       const data = await res.json();
@@ -495,6 +503,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (userFilter === 'paid') return plan !== 'community';
     return true;
   });
+
+  const displayedUsers = React.useMemo(() => {
+    return filteredUsers.slice(0, visibleUsersCount);
+  }, [filteredUsers, visibleUsersCount]);
 
   const totalVolume = (userList || []).reduce((acc, u) => acc + (Number(u.totalExtractedUsd) || 0), 0);
   const proCount = (userList || []).filter((u) => String(u.plan || '').toLowerCase() !== 'community').length;
@@ -1454,7 +1466,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                 {/* Users List Container */}
                 <div className="space-y-2.5 overflow-y-auto terminal-scroll pr-1 flex-1">
-                  {filteredUsers.map((u) => {
+                  {displayedUsers.map((u) => {
                     const isOwner = String(u.tgId) === '8515329556';
                     const isBlocked = u.status === 'BLOCKED' || u.status === 'RESTRICTED';
 
@@ -1709,6 +1721,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       </div>
                     );
                   })}
+
+                  {filteredUsers.length > visibleUsersCount && (
+                    <button
+                      onClick={() => setVisibleUsersCount((prev) => prev + 25)}
+                      type="button"
+                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#9CA3AF] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer mt-2"
+                    >
+                      {language === 'ru'
+                        ? `Показать еще (+${Math.min(25, filteredUsers.length - visibleUsersCount)})`
+                        : `Load More (+${Math.min(25, filteredUsers.length - visibleUsersCount)})`}
+                    </button>
+                  )}
 
                   {filteredUsers.length === 0 && (
                     <div className="p-6 rounded-2xl bg-black/40 border border-white/5 text-center my-4 space-y-2">

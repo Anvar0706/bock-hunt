@@ -2,12 +2,25 @@ import { NextResponse } from 'next/server';
 import { createWithdrawal, getReferralStats, getUser } from '@/lib/db';
 import { notifyAdmin } from '@/bot';
 import { getBotMsg } from '@/bot/messages';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
     const { tgId, amount, network, address, lang = 'en' } = await req.json();
+
+    if (tgId) {
+      const rate = checkRateLimit(`withdraw:${tgId}`, 4, 600000); // 4 per 10 minutes
+      if (!rate.allowed) {
+        return NextResponse.json({
+          ok: false,
+          error: lang === 'ru'
+            ? 'Слишком много запросов на вывод. Пожалуйста, подождите немного.'
+            : 'Too many withdrawal requests. Please wait a few minutes before trying again.',
+        }, { status: 429 });
+      }
+    }
 
     if (!tgId || !amount || !network || !address) {
       return NextResponse.json({ ok: false, error: 'Missing required withdrawal fields' }, { status: 400 });

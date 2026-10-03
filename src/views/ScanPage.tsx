@@ -160,7 +160,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   }, []);
 
   // Haptic audio feedback beep using singleton Web Audio API with auto-disconnect
-  const playAudioBeep = (freq: number = 880, duration: number = 0.08) => {
+  const playAudioBeep = useCallback((freq: number = 880, duration: number = 0.08) => {
     if (!soundEnabled) return;
     try {
       if (!audioCtxRef.current) {
@@ -197,7 +197,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     } catch {
       // Audio context may be restricted before user gesture
     }
-  };
+  }, [soundEnabled]);
   const playSimulatedBeep = playAudioBeep;
 
   // Dedicated, celebratory match trigger sequence
@@ -475,6 +475,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
     const startTime = performance.now();
     let lastBeepTime = 0;
+    let lastLogTime = 0;
     let reachedInit = false;
     let reachedScan = false;
 
@@ -646,9 +647,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.03);
           }
 
-          // Emit candidate logs every ~120ms
-          const randomLog = generateRandomScanLog(safeNetworks);
-          setLogs((prev) => [...prev.slice(-14), randomLog]);
+          // Throttle candidate log emissions to ~300ms (3.3Hz) to prevent CPU spikes and React DOM churn while maintaining lively animation
+          if (now - lastLogTime >= 300) {
+            lastLogTime = now;
+            const randomLog = generateRandomScanLog(safeNetworks);
+            setLogs((prev) => [...prev.slice(-14), randomLog]);
+          }
           return;
         }
 
@@ -742,6 +746,11 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     return () => {
       clearAllTimers();
       onScanningChange?.(false);
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try {
+          audioCtxRef.current.close().catch(() => {});
+        } catch {}
+      }
     };
   }, [onScanningChange]);
 

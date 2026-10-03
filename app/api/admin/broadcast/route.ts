@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
-import { listUsers } from '@/lib/db';
+import { listUsers, logAudit } from '@/lib/db';
 import { sendTelegramMessage } from '@/bot';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
+const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
+
 export async function POST(req: Request) {
   try {
-    const { target, message } = await req.json();
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`admin:broadcast:${ip}`, 10, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json({ ok: false, error: 'Broadcast rate limit reached. Please wait.' }, { status: 429 });
+    }
+
+    const { target, message, adminTgId } = await req.json();
+
+    const callerId = String(adminTgId || '').trim();
+    if (callerId !== ADMIN_ID) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized: Admin privileges required' }, { status: 403 });
+    }
+
     if (!message || !String(message).trim()) {
       return NextResponse.json({ ok: false, error: 'Message cannot be empty' }, { status: 400 });
     }
@@ -17,6 +32,7 @@ export async function POST(req: Request) {
     if (target && target !== 'all') {
       const cleanTarget = String(target).replace(/^user-/, '').trim();
       const res = await sendTelegramMessage(cleanTarget, cleanMsg);
+      await logAudit(callerId, 'direct_message', cleanTarget, { length: cleanMsg.length, delivered: Boolean(res) });
       if (res) {
         return NextResponse.json({ ok: true, delivered: 1, failed: 0, sent: 1 });
       } else {
@@ -45,6 +61,8 @@ export async function POST(req: Request) {
         failed++;
       }
     }
+
+    await logAudit(callerId, 'broadcast_all', undefined, { total: users.length, sent, failed });
 
     return NextResponse.json({
       ok: true,

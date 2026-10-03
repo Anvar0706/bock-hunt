@@ -156,6 +156,22 @@ export async function initDb(): Promise<boolean> {
         timestamp INTEGER,
         date TEXT
       );`,
+      `CREATE TABLE IF NOT EXISTS audit_log (
+        id TEXT PRIMARY KEY,
+        adminTgId TEXT NOT NULL,
+        action TEXT NOT NULL,
+        targetTgId TEXT,
+        details TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_users_tgId ON users(tgId);`,
+      `CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);`,
+      `CREATE INDEX IF NOT EXISTS idx_extractions_tgId ON extractions(tgId);`,
+      `CREATE INDEX IF NOT EXISTS idx_referrals_referrerTgId ON referrals(referrerTgId);`,
+      `CREATE INDEX IF NOT EXISTS idx_referrals_referredTgId ON referrals(referredTgId);`,
+      `CREATE INDEX IF NOT EXISTS idx_withdrawals_tgId ON withdrawals(tgId);`,
+      `CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);`,
+      `CREATE INDEX IF NOT EXISTS idx_audit_log_adminTgId ON audit_log(adminTgId);`,
     ], 'write');
 
     // 2. Check if we need to seed from legacy json files
@@ -316,7 +332,7 @@ export async function getUser(tgId: string) {
   await initDb();
   const db = getDbClient();
   const res = await db.execute({
-    sql: 'SELECT * FROM users WHERE tgId = ?',
+    sql: 'SELECT id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang, limitResetAt FROM users WHERE tgId = ?',
     args: [String(tgId)],
   });
   if (res.rows.length === 0) return null;
@@ -429,7 +445,7 @@ export async function updateUser(tgId: string, fields: Record<string, any>) {
 export async function listUsers() {
   await initDb();
   const db = getDbClient();
-  const res = await db.execute('SELECT * FROM users ORDER BY createdAt DESC');
+  const res = await db.execute('SELECT id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang, limitResetAt FROM users ORDER BY createdAt DESC');
   return res.rows.map((row) => ({
     id: String(row.id),
     tgId: String(row.tgId),
@@ -444,6 +460,21 @@ export async function listUsers() {
     lang: String(row.lang || 'en'),
     limitResetAt: row.limitResetAt ? String(row.limitResetAt) : undefined,
   }));
+}
+
+export async function logAudit(adminTgId: string, action: string, targetTgId?: string, details?: any) {
+  try {
+    await initDb();
+    const db = getDbClient();
+    const id = `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const detailsStr = details ? (typeof details === 'string' ? details : JSON.stringify(details)) : null;
+    await db.execute({
+      sql: `INSERT INTO audit_log (id, adminTgId, action, targetTgId, details) VALUES (?, ?, ?, ?, ?)`,
+      args: [String(id), String(adminTgId), String(action), targetTgId ? String(targetTgId) : null, detailsStr],
+    });
+  } catch (err) {
+    console.error('[DB] logAudit error:', err);
+  }
 }
 
 export async function deleteUser(tgId: string) {
@@ -605,23 +636,29 @@ export async function markHashUsed(hash: string, details: {
   cycle?: string;
   network?: string;
   amountUsd?: number;
-}) {
+}): Promise<boolean> {
   await initDb();
   const db = getDbClient();
   const clean = hash.trim().toLowerCase();
-  await db.execute({
-    sql: `INSERT OR REPLACE INTO used_hashes (hash, plan, cycle, network, amountUsd, timestamp, date)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      clean,
-      details.plan || 'pro',
-      details.cycle || 'weekly',
-      details.network || 'TRON',
-      Number(details.amountUsd || 0),
-      Date.now(),
-      new Date().toISOString(),
-    ],
-  });
+  try {
+    await db.execute({
+      sql: `INSERT INTO used_hashes (hash, plan, cycle, network, amountUsd, timestamp, date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        clean,
+        details.plan || 'pro',
+        details.cycle || 'weekly',
+        details.network || 'TRON',
+        Number(details.amountUsd || 0),
+        Date.now(),
+        new Date().toISOString(),
+      ],
+    });
+    return true;
+  } catch (err) {
+    console.warn('[DB] Duplicate hash redemption prevented:', hash, err);
+    return false;
+  }
 }
 
 // Referrals
