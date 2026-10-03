@@ -21,6 +21,9 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: false,
         canScan: false,
+        allowed: false,
+        blocked: true,
+        limitReached: false,
         reason: 'user_blocked',
         error: 'Account access has been restricted by system administrator.',
       });
@@ -31,14 +34,21 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         canScan: false,
+        allowed: false,
+        blocked: false,
+        limitReached: true,
         reason: 'limit_reached',
         extractsCount: user.extractsCount,
+        plan: effectivePlan,
       });
     }
 
     return NextResponse.json({
       ok: true,
       canScan: true,
+      allowed: true,
+      blocked: false,
+      limitReached: false,
       extractsCount: user.extractsCount,
       plan: effectivePlan,
     });

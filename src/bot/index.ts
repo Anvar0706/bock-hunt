@@ -292,9 +292,17 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
       parse_mode: 'HTML',
       ...options,
     });
-  } catch (err: any) {
-    console.error(`[Bot] Failed to send message to ${chatId}:`, err?.message || err);
-    return null;
+  } catch (htmlErr: any) {
+    // If HTML entity parsing fails, retry without parse_mode
+    try {
+      return await bot.api.sendMessage(chatId, text, {
+        ...options,
+        parse_mode: undefined,
+      });
+    } catch (err: any) {
+      console.error(`[Bot] Failed to send message to ${chatId}:`, err?.message || err);
+      return null;
+    }
   }
 }
 

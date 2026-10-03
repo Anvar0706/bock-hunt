@@ -233,7 +233,7 @@ function MainApp() {
     if (!currentTgUser?.id) return;
     const timer = setInterval(() => {
       syncWithBackend();
-    }, 20000);
+    }, 5000);
 
     const onWindowFocus = () => {
       syncWithBackend();
