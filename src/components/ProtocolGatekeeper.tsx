@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Database, WifiOff, RefreshCw, Cpu, Terminal as TerminalIcon } from 'lucide-react';
 
 interface ProtocolGatekeeperProps {
@@ -22,40 +22,40 @@ export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
 
   const t = {
     uz: {
-      titleConnecting: "MA'LUMOTLAR BAZASIGA ULANILMOQDA",
+      titleConnecting: "PROTOKOL KLASTERIGA ULANILMOQDA",
       subConnecting: "Xavfsiz kiber kanal va klaster tekshirilmoqda...",
-      titleDisconnected: "BAZA BILAN ALOQA O'RNATILMADI",
-      descDisconnected: "Turso ma'lumotlar bazasi yoki tarmoq bilan aloqa uzildi. Tizim yaxlitligini ta'minlash uchun, aloqa to'liq tiklanmaguncha asosiy menyu ochilmaydi.",
+      titleDisconnected: "PROTOKOL BILAN ALOQA O'RNATILMADI",
+      descDisconnected: "Markazlashmagan protokol klasteri yoki tarmoq bilan aloqa uzildi. Tizim yaxlitligini ta'minlash uchun, aloqa to'liq tiklanmaguncha tizim kutish rejimida qoladi.",
       btnRetry: "Qayta ulanish",
       autoRetry: "Avtomatik qayta urinish:",
       step1: "Telegram identifikatsiya sessiyasi",
-      step2: "Turso Cloud klasteriga ulanish va sinxronizatsiya",
+      step2: "Xavfsiz protokol klasteri bilan sinxronizatsiya",
       step3: "Audit loglari va hamyonlar xazinasi yuklanishi",
-      secNotice: "Xavfsizlik bayonnomasi: Baza bilan aloqa kutilmoqda",
+      secNotice: "Xavfsizlik bayonnomasi: Protokol aloqasi kutilmoqda",
     },
     ru: {
-      titleConnecting: "ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ",
-      subConnecting: "Установка зашифрованного канала с кластером...",
-      titleDisconnected: "НЕТ СВЯЗИ С БАЗОЙ ДАННЫХ",
-      descDisconnected: "Потеряна связь с кластером базы данных. В целях целостности данных главное меню заблокировано до восстановления соединения.",
+      titleConnecting: "ПОДКЛЮЧЕНИЕ К КЛАСТЕРУ ПРОТОКОЛА",
+      subConnecting: "Установка зашифрованного канала с узлом протокола...",
+      titleDisconnected: "НЕТ СВЯЗИ С КЛАСТЕРОМ",
+      descDisconnected: "Потеряна связь с защищенным узлом протокола. В целях целостности данных главное меню заблокировано до восстановления соединения.",
       btnRetry: "Повторить подключение",
       autoRetry: "Авто-подключение через:",
       step1: "Идентификация сессии Telegram",
-      step2: "Связь с узлом кластера Turso Cloud",
+      step2: "Синхронизация с защищенным узлом протокола",
       step3: "Синхронизация журнала аудита и кошельков",
-      secNotice: "Протокол безопасности: Ожидание подключения к БД",
+      secNotice: "Протокол безопасности: Ожидание подключения к кластеру",
     },
     en: {
-      titleConnecting: "SYNCHRONIZING REPOSITORY CLUSTER",
+      titleConnecting: "SYNCHRONIZING PROTOCOL CLUSTER",
       subConnecting: "Establishing quantum encrypted mempool handshake...",
-      titleDisconnected: "DATABASE CLUSTER UNREACHABLE",
-      descDisconnected: "Failed to establish a secure link with the cloud database. For telemetry integrity, the main menu remains locked until uplink succeeds.",
+      titleDisconnected: "PROTOCOL CLUSTER UNREACHABLE",
+      descDisconnected: "Failed to establish a secure link with the protocol cluster. For telemetry integrity, the main menu remains locked until uplink succeeds.",
       btnRetry: "Reconnect to Cluster",
       autoRetry: "Auto-reconnect in:",
       step1: "Resolving Telegram protocol credentials",
-      step2: "Synchronizing with Turso Cloud cluster",
+      step2: "Synchronizing with BlockHunt protocol cluster",
       step3: "Retrieving extraction vault & audit telemetry",
-      secNotice: "Protocol Security: Waiting for active DB connection",
+      secNotice: "Protocol Security: Waiting for active protocol link",
     },
   }[language === 'uz' ? 'uz' : language === 'ru' ? 'ru' : 'en'];
 

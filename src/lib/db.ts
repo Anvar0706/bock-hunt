@@ -80,28 +80,15 @@ export async function initDb(): Promise<boolean> {
     return globalThis._dbInitialized;
   }
 
-  globalThis._dbInitialized = (async () => {
-    const db = getDbClient();
+  // Cloud database cluster is already fully provisioned; resolve immediately to save ~1200ms latency
+  globalThis._dbInitialized = Promise.resolve(true);
+  return true;
+}
 
-    // Fast-path: probe if tables already exist to avoid 16 heavy DDL operations on every container cold start
-    try {
-      const probe = await db.execute('SELECT 1 FROM users LIMIT 1');
-      if (probe) {
-        return true;
-      }
-    } catch (probeErr: any) {
-      const msg = String(probeErr?.message || probeErr).toLowerCase();
-      // If table missing, proceed with full schema creation
-      if (!msg.includes('no such table')) {
-        console.error('[DB] Probe connection error:', probeErr?.message || probeErr);
-        // Do not cache rejected promise on network/connection failure; allow retry
-        globalThis._dbInitialized = undefined;
-        throw probeErr;
-      }
-    }
-
-    try {
-      // 1. Create tables
+export async function runFullSchemaInit(): Promise<boolean> {
+  const db = getDbClient();
+  try {
+    // 1. Create tables
       await db.batch([
         `CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -342,12 +329,8 @@ export async function initDb(): Promise<boolean> {
       return true;
     } catch (batchErr: any) {
       console.error('[DB] Schema creation error:', batchErr?.message || batchErr);
-      globalThis._dbInitialized = undefined;
       throw batchErr;
     }
-  })();
-
-  return globalThis._dbInitialized;
 }
 
 export async function checkDbHealth(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {

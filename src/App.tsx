@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   TabType,
   Network,
@@ -112,9 +112,16 @@ function MainApp() {
   // Active scan tracking (to disable activity and wallet navigation while scanning)
   const [isScanning, setIsScanning] = useState(false);
 
+  // Stable tracking refs to eliminate infinite render loops and concurrent races
+  const isHandshakingRef = useRef(false);
+  const currentTgUserRef = useRef(currentTgUser);
+  currentTgUserRef.current = currentTgUser;
+  const languageRef = useRef(language);
+  languageRef.current = language;
+
   // Backend synchronization helper (background refresh)
   const syncWithBackend = useCallback((userObj?: { id: string; name: string; username: string } | null) => {
-    const targetUser = userObj || currentTgUser;
+    const targetUser = userObj || currentTgUserRef.current;
     if (!targetUser?.id) return;
 
     fetch('/api/users/sync', {
@@ -124,7 +131,7 @@ function MainApp() {
         tgId: targetUser.id,
         name: targetUser.name,
         username: targetUser.username,
-        lang: language,
+        lang: languageRef.current,
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -146,17 +153,20 @@ function MainApp() {
         }
       })
       .catch(() => {});
-  }, [currentTgUser, language, setActivePlan, setCommunityExtractsCount]);
+  }, [setActivePlan, setCommunityExtractsCount]);
 
-  // Master Protocol Gatekeeper Handshake: Authenticates Telegram user, verifies DB connection & restores audit logs
-  const performProtocolHandshake = useCallback(async (forcedUser?: { id: string; name: string; username: string } | null) => {
+  // Master Protocol Gatekeeper Handshake: Authenticates Telegram user, verifies cluster connection & restores audit logs
+  const performProtocolHandshake = useCallback(async (isRetry = false) => {
+    if (isHandshakingRef.current && !isRetry) return;
+    isHandshakingRef.current = true;
+
     setDbConnectionStatus('CONNECTING');
     setConnectionError(null);
     setHandshakeStep(1);
 
     try {
       // Step 1: Detect and authenticate Telegram session
-      let user = forcedUser || currentTgUser;
+      let user = currentTgUserRef.current;
       if (!user?.id && typeof window !== 'undefined') {
         const startCheck = Date.now();
         while (Date.now() - startCheck < 1500) {
@@ -198,6 +208,7 @@ function MainApp() {
               const uName = cu.username ? `@${cu.username}` : '';
               user = { id: currentUserId, name: fullName, username: uName };
               setCurrentTgUser(user);
+              currentTgUserRef.current = user;
 
               // Bind referral if start_param present
               const startParam = tg.initDataUnsafe?.start_param;
@@ -231,6 +242,7 @@ function MainApp() {
           const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
           user = devAdminUser;
           setCurrentTgUser(devAdminUser);
+          currentTgUserRef.current = devAdminUser;
           setIsAdmin(true);
           if (window.location.pathname.startsWith('/admin')) {
             setAdminModalOpen(true);
@@ -240,10 +252,10 @@ function MainApp() {
 
       const activeUser = user || { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
 
-      // Step 2: Establish connection to Turso Cloud cluster and synchronize operative profile
+      // Step 2: Establish connection to secure protocol cluster and synchronize operative profile
       setHandshakeStep(2);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       let syncRes: Response;
       try {
@@ -254,7 +266,7 @@ function MainApp() {
             tgId: activeUser.id,
             name: activeUser.name,
             username: activeUser.username,
-            lang: language,
+            lang: languageRef.current,
           }),
           signal: controller.signal,
         });
@@ -363,8 +375,10 @@ function MainApp() {
       console.error('[Handshake Error]:', err?.message || err);
       setConnectionError(err?.message || 'Database cluster unreachable');
       setDbConnectionStatus('DISCONNECTED');
+    } finally {
+      isHandshakingRef.current = false;
     }
-  }, [currentTgUser, language, setActivePlan, setCommunityExtractsCount, setPricingSettings, setAdminAddresses, setWallets, setScans]);
+  }, [setActivePlan, setCommunityExtractsCount, setPricingSettings, setAdminAddresses, setWallets, setScans]);
 
   // Initial handshake on mount
   useEffect(() => {
@@ -380,7 +394,7 @@ function MainApp() {
       setRetryCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          performProtocolHandshake();
+          performProtocolHandshake(true);
           return 5;
         }
         return prev - 1;
@@ -694,7 +708,7 @@ function MainApp() {
         currentStep={handshakeStep}
         error={connectionError}
         retryCountdown={retryCountdown}
-        onRetry={() => performProtocolHandshake()}
+        onRetry={() => performProtocolHandshake(true)}
         language={language}
       />
     );

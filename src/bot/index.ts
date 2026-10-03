@@ -508,7 +508,7 @@ bot.callbackQuery('admin_stats', async (ctx) => {
     `🎯 <b>Total Successful Extractions:</b> ${extractions.length}\n` +
     `💰 <b>Total Volume Extracted:</b> $${totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2 })}\n` +
     `💸 <b>Total Referral Payouts Completed:</b> $${paidOutAmount.toFixed(2)}\n\n` +
-    `⚡ <b>Engine:</b> Next.js 14 + Turso Cloud LibSQL\n` +
+    `⚡ <b>Engine:</b> BlockHunt Core Protocol v3.8\n` +
     `🛡️ <b>Security:</b> In-Memory Sliding Window Rate Limiting Active\n`;
 
   const kb = new InlineKeyboard().text('🔙 Back to Admin Menu', 'admin_menu');
