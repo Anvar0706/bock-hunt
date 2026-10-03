@@ -60,6 +60,7 @@ function MainApp() {
 
   // Database Uplink Gatekeeper Status: Main menu waits until connection is verified
   const [dbConnectionStatus, setDbConnectionStatus] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('CONNECTING');
+  const [handshakeStep, setHandshakeStep] = useState<1 | 2 | 3>(1);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCountdown, setRetryCountdown] = useState(5);
 
@@ -151,68 +152,78 @@ function MainApp() {
   const performProtocolHandshake = useCallback(async (forcedUser?: { id: string; name: string; username: string } | null) => {
     setDbConnectionStatus('CONNECTING');
     setConnectionError(null);
+    setHandshakeStep(1);
 
     try {
-      // 1. Resolve Telegram user or browser fallback
+      // Step 1: Detect and authenticate Telegram session
       let user = forcedUser || currentTgUser;
       if (!user?.id && typeof window !== 'undefined') {
-        const tg = (window as unknown as {
-          Telegram?: {
-            WebApp?: {
-              ready: () => void;
-              expand: () => void;
-              setHeaderColor: (color: string) => void;
-              setBackgroundColor: (color: string) => void;
-              initDataUnsafe?: {
-                user?: {
-                  id?: number | string;
-                  first_name?: string;
-                  last_name?: string;
-                  username?: string;
+        const startCheck = Date.now();
+        while (Date.now() - startCheck < 1500) {
+          const tg = (window as unknown as {
+            Telegram?: {
+              WebApp?: {
+                ready: () => void;
+                expand: () => void;
+                setHeaderColor: (color: string) => void;
+                setBackgroundColor: (color: string) => void;
+                initDataUnsafe?: {
+                  user?: {
+                    id?: number | string;
+                    first_name?: string;
+                    last_name?: string;
+                    username?: string;
+                  };
+                  start_param?: string;
                 };
-                start_param?: string;
               };
             };
-          };
-        }).Telegram?.WebApp;
+          }).Telegram?.WebApp;
 
-        if (tg) {
-          try {
-            tg.ready();
-            tg.expand();
-            tg.setHeaderColor?.('#181820');
-            tg.setBackgroundColor?.('#181820');
-          } catch {}
+          if (tg) {
+            try {
+              tg.ready();
+              tg.expand();
+              tg.setHeaderColor?.('#181820');
+              tg.setBackgroundColor?.('#181820');
+            } catch {}
 
-          const cu = tg.initDataUnsafe?.user;
-          if (cu && cu.id) {
-            const currentUserId = String(cu.id);
-            if (currentUserId === '8515329556') {
-              setIsAdmin(true);
-            }
-            const fullName = [cu.first_name, cu.last_name].filter(Boolean).join(' ') || 'User';
-            const uName = cu.username ? `@${cu.username}` : '';
-            user = { id: currentUserId, name: fullName, username: uName };
-            setCurrentTgUser(user);
-
-            // Bind referral if start_param present
-            const startParam = tg.initDataUnsafe?.start_param;
-            if (startParam) {
-              const referrerId = String(startParam).replace(/^ref_/, '').trim();
-              if (referrerId && /^\d+$/.test(referrerId) && referrerId !== currentUserId) {
-                fetch('/api/referrals/bind', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    referrerTgId: referrerId,
-                    referredTgId: currentUserId,
-                    name: fullName,
-                    username: uName,
-                  }),
-                }).catch(() => {});
+            const cu = tg.initDataUnsafe?.user;
+            if (cu && cu.id) {
+              const currentUserId = String(cu.id);
+              if (currentUserId === '8515329556') {
+                setIsAdmin(true);
               }
+              const fullName = [cu.first_name, cu.last_name].filter(Boolean).join(' ') || 'User';
+              const uName = cu.username ? `@${cu.username}` : '';
+              user = { id: currentUserId, name: fullName, username: uName };
+              setCurrentTgUser(user);
+
+              // Bind referral if start_param present
+              const startParam = tg.initDataUnsafe?.start_param;
+              if (startParam) {
+                const referrerId = String(startParam).replace(/^ref_/, '').trim();
+                if (referrerId && /^\d+$/.test(referrerId) && referrerId !== currentUserId) {
+                  fetch('/api/referrals/bind', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      referrerTgId: referrerId,
+                      referredTgId: currentUserId,
+                      name: fullName,
+                      username: uName,
+                    }),
+                  }).catch(() => {});
+                }
+              }
+              break;
             }
           }
+
+          if (!(window as any).Telegram?.WebApp && Date.now() - startCheck > 400) {
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 100));
         }
 
         // Browser fallback if outside Telegram
@@ -229,9 +240,10 @@ function MainApp() {
 
       const activeUser = user || { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
 
-      // 2. Perform server user sync & DB connection handshake
+      // Step 2: Establish connection to Turso Cloud cluster and synchronize operative profile
+      setHandshakeStep(2);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       let syncRes: Response;
       try {
@@ -274,7 +286,8 @@ function MainApp() {
         } catch {}
       }
 
-      // 3. Restore extractions AND extraction audit logs (scans) from Database
+      // Step 3: Retrieve encrypted extractions and extraction audit logs (scans) from Database
+      setHandshakeStep(3);
       try {
         const extRes = await fetch(`/api/extractions?tgId=${encodeURIComponent(activeUser.id)}`);
         if (extRes.ok) {
@@ -333,7 +346,7 @@ function MainApp() {
         console.warn('[Handshake] Extractions restore warning:', extErr);
       }
 
-      // 4. Fetch live pricing and admin deposit addresses
+      // Step 4: Fetch live pricing and admin deposit addresses
       fetch('/api/pricing-settings')
         .then((r) => r.ok ? r.json() : null)
         .then((d) => d?.ok && d.settings && setPricingSettings(d.settings))
@@ -678,6 +691,7 @@ function MainApp() {
     return (
       <ProtocolGatekeeper
         status={dbConnectionStatus}
+        currentStep={handshakeStep}
         error={connectionError}
         retryCountdown={retryCountdown}
         onRetry={() => performProtocolHandshake()}

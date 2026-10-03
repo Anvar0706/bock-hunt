@@ -398,57 +398,46 @@ export async function upsertUser(user: {
   await initDb();
   const db = getDbClient();
   const tgIdStr = String(user.tgId);
-  const existing = await getUser(tgIdStr);
-
   const isOwner = tgIdStr === String(ADMIN_ID);
   const now = new Date().toISOString();
+  const defaultPlan = isOwner ? 'enterprise' : 'community';
 
-  if (existing) {
-    const newName = user.name || existing.name;
-    const newUsername = user.username !== undefined ? user.username : existing.username;
-    const newLang = user.lang || existing.lang || 'en';
+  const res = await db.execute({
+    sql: `INSERT INTO users (id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang)
+          VALUES (?, ?, ?, ?, ?, 0, 0, 'ACTIVE', ?, ?, ?)
+          ON CONFLICT(tgId) DO UPDATE SET
+            name = CASE WHEN excluded.name != '' THEN excluded.name ELSE users.name END,
+            username = CASE WHEN excluded.username != '' THEN excluded.username ELSE users.username END,
+            lang = COALESCE(excluded.lang, users.lang),
+            lastActive = excluded.lastActive
+          RETURNING id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang, limitResetAt;`,
+    args: [
+      `user-${tgIdStr}`,
+      tgIdStr,
+      user.name || 'User',
+      user.username || '',
+      defaultPlan,
+      now,
+      now,
+      user.lang || 'en',
+    ],
+  });
 
-    await db.execute({
-      sql: `UPDATE users SET name = ?, username = ?, lang = ?, lastActive = ? WHERE tgId = ?`,
-      args: [newName, newUsername, newLang, now, tgIdStr],
-    });
-
-    return { ...existing, name: newName, username: newUsername, lang: newLang, lastActive: now };
-  } else {
-    const newUser = {
-      id: `user-${tgIdStr}`,
-      tgId: tgIdStr,
-      name: user.name || 'Telegram User',
-      username: user.username || '',
-      plan: isOwner ? 'enterprise' : 'community',
-      extractsCount: 0,
-      totalExtractedUsd: 0,
-      status: 'ACTIVE',
-      joinedAt: now,
-      lastActive: now,
-      lang: user.lang || 'en',
-    };
-
-    await db.execute({
-      sql: `INSERT INTO users (id, tgId, name, username, plan, extractsCount, totalExtractedUsd, status, joinedAt, lastActive, lang)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        newUser.id,
-        newUser.tgId,
-        newUser.name,
-        newUser.username,
-        newUser.plan,
-        newUser.extractsCount,
-        newUser.totalExtractedUsd,
-        newUser.status,
-        newUser.joinedAt,
-        newUser.lastActive,
-        newUser.lang,
-      ],
-    });
-
-    return newUser;
-  }
+  const row = res.rows[0];
+  return {
+    id: String(row.id),
+    tgId: String(row.tgId),
+    name: String(row.name),
+    username: String(row.username || ''),
+    plan: String(row.plan || defaultPlan),
+    extractsCount: Number(row.extractsCount || 0),
+    totalExtractedUsd: Number(row.totalExtractedUsd || 0),
+    status: String(row.status || 'ACTIVE'),
+    joinedAt: String(row.joinedAt || now),
+    lastActive: String(row.lastActive || now),
+    lang: String(row.lang || 'en'),
+    limitResetAt: row.limitResetAt ? String(row.limitResetAt) : undefined,
+  };
 }
 
 export async function setUserLang(tgId: string, lang: string) {

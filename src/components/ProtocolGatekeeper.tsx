@@ -1,8 +1,9 @@
 ﻿import React from 'react';
-import { Database, WifiOff, RefreshCw, Shield, Loader2, Cpu, Terminal as TerminalIcon } from 'lucide-react';
+import { Database, WifiOff, RefreshCw, Cpu, Terminal as TerminalIcon } from 'lucide-react';
 
 interface ProtocolGatekeeperProps {
   status: 'CONNECTING' | 'DISCONNECTED';
+  currentStep?: 1 | 2 | 3;
   error?: string | null;
   retryCountdown: number;
   onRetry: () => void;
@@ -11,6 +12,7 @@ interface ProtocolGatekeeperProps {
 
 export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
   status,
+  currentStep = 1,
   error,
   retryCountdown,
   onRetry,
@@ -26,9 +28,9 @@ export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
       descDisconnected: "Turso ma'lumotlar bazasi yoki tarmoq bilan aloqa uzildi. Tizim yaxlitligini ta'minlash uchun, aloqa to'liq tiklanmaguncha asosiy menyu ochilmaydi.",
       btnRetry: "Qayta ulanish",
       autoRetry: "Avtomatik qayta urinish:",
-      step1: "Klaster shifrlangan tuguniga ulanish... [OK]",
-      step2: "Telegram identifikatsiya protokoli... [TEKSHIRILMOQDA]",
-      step3: "Audit loglari va hamyonlar sinxronizatsiyasi... [KUTILMOQDA]",
+      step1: "Telegram identifikatsiya sessiyasi",
+      step2: "Turso Cloud klasteriga ulanish va sinxronizatsiya",
+      step3: "Audit loglari va hamyonlar xazinasi yuklanishi",
       secNotice: "Xavfsizlik bayonnomasi: Baza bilan aloqa kutilmoqda",
     },
     ru: {
@@ -38,9 +40,9 @@ export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
       descDisconnected: "Потеряна связь с кластером базы данных. В целях целостности данных главное меню заблокировано до восстановления соединения.",
       btnRetry: "Повторить подключение",
       autoRetry: "Авто-подключение через:",
-      step1: "Связь с узлом кластера Turso... [OK]",
-      step2: "Проверка сессии Telegram... [ПРОВЕРКА]",
-      step3: "Синхронизация журнала аудита и кошельков... [ОЖИДАНИЕ]",
+      step1: "Идентификация сессии Telegram",
+      step2: "Связь с узлом кластера Turso Cloud",
+      step3: "Синхронизация журнала аудита и кошельков",
       secNotice: "Протокол безопасности: Ожидание подключения к БД",
     },
     en: {
@@ -50,9 +52,9 @@ export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
       descDisconnected: "Failed to establish a secure link with the cloud database. For telemetry integrity, the main menu remains locked until uplink succeeds.",
       btnRetry: "Reconnect to Cluster",
       autoRetry: "Auto-reconnect in:",
-      step1: "Connecting to Turso Cloud mempool node... [OK]",
-      step2: "Authenticating Telegram protocol session... [ACTIVE]",
-      step3: "Synchronizing extraction vault & audit telemetry... [PENDING]",
+      step1: "Resolving Telegram protocol credentials",
+      step2: "Synchronizing with Turso Cloud cluster",
+      step3: "Retrieving extraction vault & audit telemetry",
       secNotice: "Protocol Security: Waiting for active DB connection",
     },
   }[language === 'uz' ? 'uz' : language === 'ru' ? 'ru' : 'en'];
@@ -113,20 +115,35 @@ export const ProtocolGatekeeper: React.FC<ProtocolGatekeeperProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2 font-mono text-[10.5px]">
+          <div className="space-y-2.5 font-mono text-[10.5px]">
+            {/* Step 1 */}
             <div className="flex items-center gap-2 text-[#CBD5E1]">
-              <span className="text-[#00E676]">✓</span>
-              <span>{t.step1}</span>
-            </div>
-            <div className="flex items-center gap-2 text-[#CBD5E1]">
-              <span className={isConnecting ? 'text-[#22D3EE] animate-pulse' : 'text-[#FF4444]'}>
-                {isConnecting ? '▶' : '✗'}
+              <span className={currentStep > 1 ? 'text-[#00E676] font-bold' : currentStep === 1 && isConnecting ? 'text-[#22D3EE] animate-pulse font-bold' : 'text-[#FF4444]'}>
+                {currentStep > 1 ? '✓' : currentStep === 1 && isConnecting ? '▶' : '✗'}
               </span>
-              <span>{t.step2}</span>
+              <span className={currentStep === 1 && isConnecting ? 'text-white font-semibold' : ''}>
+                {t.step1} {currentStep > 1 ? '[OK]' : currentStep === 1 && isConnecting ? '[ACTIVE]' : '[FAIL]'}
+              </span>
             </div>
+
+            {/* Step 2 */}
             <div className="flex items-center gap-2 text-[#CBD5E1]">
-              <span className="text-[#9CA3AF]">⋯</span>
-              <span>{t.step3}</span>
+              <span className={currentStep > 2 ? 'text-[#00E676] font-bold' : currentStep === 2 && isConnecting ? 'text-[#22D3EE] animate-pulse font-bold' : currentStep === 2 && !isConnecting ? 'text-[#FF4444]' : 'text-[#9CA3AF]'}>
+                {currentStep > 2 ? '✓' : currentStep === 2 && isConnecting ? '▶' : currentStep === 2 && !isConnecting ? '✗' : '⋯'}
+              </span>
+              <span className={currentStep === 2 && isConnecting ? 'text-white font-semibold' : ''}>
+                {t.step2} {currentStep > 2 ? '[OK]' : currentStep === 2 && isConnecting ? '[SYNCING]' : currentStep < 2 ? '[PENDING]' : '[FAIL]'}
+              </span>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex items-center gap-2 text-[#CBD5E1]">
+              <span className={currentStep === 3 && isConnecting ? 'text-[#22D3EE] animate-pulse font-bold' : currentStep === 3 && !isConnecting ? 'text-[#FF4444]' : 'text-[#9CA3AF]'}>
+                {currentStep === 3 && isConnecting ? '▶' : currentStep === 3 && !isConnecting ? '✗' : '⋯'}
+              </span>
+              <span className={currentStep === 3 && isConnecting ? 'text-white font-semibold' : ''}>
+                {t.step3} {currentStep === 3 && isConnecting ? '[LOADING]' : currentStep < 3 ? '[PENDING]' : '[FAIL]'}
+              </span>
             </div>
           </div>
 
