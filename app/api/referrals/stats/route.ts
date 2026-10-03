@@ -11,8 +11,28 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
     }
 
-    const stats = await getReferralStats(String(tgId));
-    return NextResponse.json({ ok: true, stats });
+    const cleanId = String(tgId).trim();
+    const stats = await getReferralStats(cleanId);
+    
+    // Diagnostic query to verify direct table access on server
+    const { getDbClient } = await import('@/lib/db');
+    const db = getDbClient();
+    const countRes = await db.execute('SELECT COUNT(*) as count FROM referrals');
+    const allRefs = await db.execute({
+      sql: 'SELECT referrerTgId, referredTgId, referredName FROM referrals WHERE referrerTgId = ?',
+      args: [cleanId]
+    });
+
+    return NextResponse.json({
+      ok: true,
+      stats,
+      debug: {
+        queriedId: cleanId,
+        totalInTable: Number(countRes.rows[0]?.count || 0),
+        directMatchCount: allRefs.rows.length,
+        directRows: allRefs.rows,
+      }
+    });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
   }
