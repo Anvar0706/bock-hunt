@@ -208,24 +208,32 @@ function MainApp() {
           }
         } else if (
           typeof window !== 'undefined' &&
-          (window.location.search.includes('admin') ||
+          (window.location.pathname.startsWith('/admin') ||
+            window.location.search.includes('admin') ||
             window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1')
         ) {
-          // Development / testing fallback so Admin can test locally or via ?admin=true
+          // Development / direct browser fallback
           setIsAdmin(true);
+          if (window.location.pathname.startsWith('/admin')) {
+            setAdminModalOpen(true);
+          }
           const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
           setCurrentTgUser(devAdminUser);
           syncWithBackend(devAdminUser);
         }
       } else if (
         typeof window !== 'undefined' &&
-        (window.location.search.includes('admin') ||
+        (window.location.pathname.startsWith('/admin') ||
+          window.location.search.includes('admin') ||
           window.location.hostname === 'localhost' ||
           window.location.hostname === '127.0.0.1')
       ) {
         // Direct browser fallback when not launched via Telegram iframe
         setIsAdmin(true);
+        if (window.location.pathname.startsWith('/admin')) {
+          setAdminModalOpen(true);
+        }
         const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
         setCurrentTgUser(devAdminUser);
         syncWithBackend(devAdminUser);

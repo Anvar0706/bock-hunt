@@ -504,9 +504,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     return true;
   });
 
-  const displayedUsers = React.useMemo(() => {
-    return filteredUsers.slice(0, visibleUsersCount);
-  }, [filteredUsers, visibleUsersCount]);
+  const displayedUsers = filteredUsers.slice(0, visibleUsersCount);
 
   const totalVolume = (userList || []).reduce((acc, u) => acc + (Number(u.totalExtractedUsd) || 0), 0);
   const proCount = (userList || []).filter((u) => String(u.plan || '').toLowerCase() !== 'community').length;
