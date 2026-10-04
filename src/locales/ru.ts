@@ -292,10 +292,10 @@ export const ru = {
   commissionTag: '50% КОМИССИЯ',
 
   // Affiliate Hub & Terms
-  affiliateHubTitle: 'ПАРТНЕРСКИЙ ХАБ И РЕКЛАМА',
-  affiliateHubBadge: '50% REVSHARE • ПРОМО-МАТЕРИАЛЫ',
-  affiliateHubDesc: 'Рекламируете в Instagram, Telegram-каналах, TikTok или YouTube? Нужны готовые видео-шаблоны, рекламные тексты и особые условия для крупных объемов? Свяжитесь с нашим официальным партнерским менеджером.',
-  contactAffiliateBtn: 'СВЯЗАТЬСЯ С @blockhunt_affiliate',
+  affiliateHubTitle: 'Материалы для авторов и каналов',
+  affiliateHubBadge: 'ПРОМО-ПАКЕТЫ И 120 FPS',
+  affiliateHubDesc: 'Ведете канал или блог в Telegram, Instagram или TikTok? Получите официальные 120 FPS промо-ролики, рекламные тексты и специальные условия.',
+  contactAffiliateBtn: 'Получить промо-кит (@blockhunt_affiliate)',
   howItWorksTitle: 'КАК РАБОТАЕТ ПРОГРАММА 50%',
   termsOfUseTitle: 'ПРАВИЛА И УСЛОВИЯ ПРОГРАММЫ',
   step1Head: '1. Скопируйте вашу ссылку',

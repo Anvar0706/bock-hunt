@@ -14,7 +14,6 @@ import {
   AlertCircle,
   RefreshCw,
   Gift,
-  Megaphone,
   Sparkles,
   ExternalLink,
   FileText,
@@ -115,6 +114,36 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
       window.open(shareUrl, '_blank');
     }
   };
+
+  const renderCreatorPromoCard = () => (
+    <div className="rounded-2xl p-4 mb-5 bg-[#0F172A]/70 border border-white/10 hover:border-[#A855F7]/30 transition-all flex flex-col gap-2.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="p-1 rounded-lg bg-[#A855F7]/15 text-[#C084FC] border border-[#A855F7]/30">
+            <Sparkles className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-xs font-bold text-white tracking-wide">
+            {t('affiliateHubTitle')}
+          </span>
+        </div>
+        <span className="text-[9px] font-mono font-bold text-[#A855F7] bg-[#A855F7]/10 px-2 py-0.5 rounded border border-[#A855F7]/25 uppercase">
+          {t('affiliateHubBadge')}
+        </span>
+      </div>
+
+      <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+        {t('affiliateHubDesc')}
+      </p>
+
+      <button
+        onClick={handleContactAffiliate}
+        className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#A855F7]/40 text-xs font-mono font-semibold text-[#E2E8F0] hover:text-white flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
+      >
+        <span>{t('contactAffiliateBtn')}</span>
+        <ExternalLink className="w-3.5 h-3.5 text-[#A855F7]" />
+      </button>
+    </div>
+  );
 
   // Payout validation
   const validateAddress = (net: WithdrawalNetwork, addr: string): boolean => {
@@ -372,41 +401,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
         </div>
       </div>
 
-      {/* High-Volume Affiliate Partner Hub Card */}
-      <div className="relative overflow-hidden rounded-2xl p-5 mb-5 border border-[#A855F7]/35 bg-gradient-to-br from-[#1C1033]/90 via-[#0F172A]/95 to-[#0A0E1A]/95 shadow-[0_8px_32px_rgba(168,85,247,0.15)]">
-        <div className="absolute -top-12 -right-12 w-40 h-40 bg-[#A855F7]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-[#22D3EE]/15 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#A855F7]/20 border border-[#A855F7]/40 text-[#C084FC] text-[10px] font-mono font-bold tracking-wider">
-              <Megaphone className="w-3.5 h-3.5" />
-              <span>{t('affiliateHubBadge')}</span>
-            </div>
-            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              50% REVSHARE
-            </span>
-          </div>
-
-          <h2 className="text-base font-black tracking-tight text-white flex items-center gap-2 mb-1.5">
-            <Sparkles className="w-4 h-4 text-[#A855F7]" />
-            {t('affiliateHubTitle')}
-          </h2>
-
-          <p className="text-xs text-[#94A3B8] leading-relaxed mb-4">
-            {t('affiliateHubDesc')}
-          </p>
-
-          <button
-            onClick={handleContactAffiliate}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#A855F7] via-[#9333EA] to-[#38E8FF] hover:opacity-95 text-white font-mono text-xs font-black tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#A855F7]/25 transition-all active:scale-98 cursor-pointer"
-          >
-            <span>{t('contactAffiliateBtn')}</span>
-            <ExternalLink className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
       {/* Conditional: For active referrers vs new referrers */}
       {((stats?.totalReferrals || 0) > 0 || Boolean(stats?.withdrawalsList && stats.withdrawalsList.length > 0)) ? (
         <>
@@ -566,6 +560,9 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
             )}
           </div>
 
+          {/* Creator & Promo Assets for Active Referrers */}
+          {renderCreatorPromoCard()}
+
           {/* Collapsible Program Terms & Rules Accordion */}
           <div className="rounded-2xl p-4 bg-[#0A0F1D]/80 border border-white/10">
             <button
@@ -670,6 +667,9 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
               </div>
             </div>
           </div>
+
+          {/* Creator & Promo Assets for New Operatives */}
+          {renderCreatorPromoCard()}
 
           {/* Program Rules & Terms of Use */}
           <div className="rounded-2xl p-5 mb-5 bg-[#0A0F1D]/80 border border-white/10">

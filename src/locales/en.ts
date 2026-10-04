@@ -292,10 +292,10 @@ export const en = {
   commissionTag: '50% COMMISSION',
 
   // Affiliate Hub & Terms
-  affiliateHubTitle: 'AFFILIATE & MEDIA BUYERS HUB',
-  affiliateHubBadge: '50% REVSHARE • PROMO PACKS',
-  affiliateHubDesc: 'Promoting on Instagram, Telegram, TikTok, or YouTube? Need high-converting promotional video templates, ad copy, and custom high-volume terms? Contact our official affiliate manager.',
-  contactAffiliateBtn: 'CONTACT @blockhunt_affiliate',
+  affiliateHubTitle: 'Creator & Media Resources',
+  affiliateHubBadge: 'PROMO & 120 FPS ASSETS',
+  affiliateHubDesc: 'Promoting on Telegram, Instagram, TikTok, or YouTube? Access official 120 FPS video packs, ad templates, and high-volume partner conditions.',
+  contactAffiliateBtn: 'Get Media Kit (@blockhunt_affiliate)',
   howItWorksTitle: 'HOW THE 50% PROGRAM WORKS',
   termsOfUseTitle: 'PROGRAM RULES & TERMS OF USE',
   step1Head: '1. Copy Your Tracking Link',
