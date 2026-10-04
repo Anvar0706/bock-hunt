@@ -16,8 +16,6 @@ import {
   Sparkles,
   ExternalLink,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Zap,
   HelpCircle,
 } from 'lucide-react';
@@ -36,7 +34,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
   const { t, language } = useLanguage();
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [showTerms, setShowTerms] = useState<boolean>(false);
   const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
 
   // Withdrawal Modal State
@@ -525,68 +522,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
               </div>
             )}
           </div>
-
-          {/* Collapsible Program Terms & Rules Accordion */}
-          <div className="rounded-2xl p-4 bg-[#0A0F1D]/80 border border-white/10">
-            <button
-              onClick={() => setShowTerms((prev) => !prev)}
-              className="w-full flex items-center justify-between text-left"
-            >
-              <span className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-2">
-                <FileText className="w-4 h-4 text-teal-400" />
-                {t('termsOfUseTitle')}
-              </span>
-              {showTerms ? (
-                <ChevronUp className="w-4 h-4 text-[#94A3B8]" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-[#94A3B8]" />
-              )}
-            </button>
-
-            {showTerms && (
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2.5 animate-fadeIn">
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                    <span className="text-emerald-400">💰</span>
-                    <span>{t('rule1Title')}</span>
-                  </div>
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                    {t('rule1Desc')}
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                    <span className="text-teal-400">⚡</span>
-                    <span>{t('rule2Title')}</span>
-                  </div>
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                    {t('rule2Desc')}
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                    <span className="text-[#A855F7]">🚀</span>
-                    <span>{t('rule3Title')}</span>
-                  </div>
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                    {t('rule3Desc')}
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                    <span className="text-amber-400">🛡</span>
-                    <span>{t('rule4Title')}</span>
-                  </div>
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                    {t('rule4Desc')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
         </>
       ) : (
         /* New Operatives View: How It Works & Full Rules & Terms */
@@ -627,56 +562,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
                   <h4 className="text-xs font-bold text-white mb-0.5">{t('step3Head')}</h4>
                   <p className="text-[11px] text-[#94A3B8] leading-relaxed">{t('step3Text')}</p>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Program Rules & Terms of Use */}
-          <div className="rounded-2xl p-5 mb-5 bg-[#0A0F1D]/80 border border-white/10">
-            <h3 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-2 mb-3.5">
-              <FileText className="w-4 h-4 text-teal-400" />
-              {t('termsOfUseTitle')}
-            </h3>
-
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                  <span className="text-emerald-400">💰</span>
-                  <span>{t('rule1Title')}</span>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                  {t('rule1Desc')}
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                  <span className="text-teal-400">⚡</span>
-                  <span>{t('rule2Title')}</span>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                  {t('rule2Desc')}
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                  <span className="text-[#A855F7]">🚀</span>
-                  <span>{t('rule3Title')}</span>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                  {t('rule3Desc')}
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                  <span className="text-amber-400">🛡</span>
-                  <span>{t('rule4Title')}</span>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
-                  {t('rule4Desc')}
-                </p>
               </div>
             </div>
           </div>
