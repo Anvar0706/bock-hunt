@@ -314,6 +314,9 @@ export const ru = {
   rule4Desc: 'Приветствуется реальный трафик из каналов, рилс и сообществ. Накрутка, мультиаккаунты и спам строго запрещены.',
   viewTermsBtn: 'Показать правила и условия',
   hideTermsBtn: 'Скрыть правила и условия',
+  infoModalTitle: 'ПРАВИЛА И МЕДИА-КИТ',
+  infoModalSubtitle: '50% RevShare • Условия программы • Промо-материалы',
+  closeModalBtn: 'Понятно / Закрыть',
 
   // Admin Withdrawals
   tabWithdrawals: 'ВЫВОДЫ',

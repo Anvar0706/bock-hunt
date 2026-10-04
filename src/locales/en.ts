@@ -314,6 +314,9 @@ export const en = {
   rule4Desc: 'Legitimate traffic from channels, chats, reels, and communities is rewarded. Sybil accounts, self-referrals, and bot spam are strictly prohibited.',
   viewTermsBtn: 'View Program Terms & Rules',
   hideTermsBtn: 'Hide Program Terms & Rules',
+  infoModalTitle: 'PROGRAM RULES & MEDIA KIT',
+  infoModalSubtitle: '50% RevShare • Terms of Use • Creator Assets',
+  closeModalBtn: 'Understood / Close',
 
   // Admin Withdrawals
   tabWithdrawals: 'WITHDRAWALS',
