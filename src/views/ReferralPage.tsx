@@ -14,6 +14,13 @@ import {
   AlertCircle,
   RefreshCw,
   Gift,
+  Megaphone,
+  Sparkles,
+  ExternalLink,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Zap,
 } from 'lucide-react';
 
 interface ReferralPageProps {
@@ -31,6 +38,7 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [showTerms, setShowTerms] = useState<boolean>(false);
 
   // Withdrawal Modal State
   const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false);
@@ -44,6 +52,16 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
   const userId = tgUser?.id ? String(tgUser.id) : '';
   const userName = tgUser?.name || [tgUser?.first_name, tgUser?.last_name].filter(Boolean).join(' ') || 'Operative';
   const userUsername = tgUser?.username ? `@${tgUser.username}` : '';
+
+  const handleContactAffiliate = () => {
+    const affiliateUrl = 'https://t.me/blockhunt_affiliate';
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(affiliateUrl);
+    } else {
+      window.open(affiliateUrl, '_blank');
+    }
+  };
 
   const fetchStats = useCallback(
     async (isManual = false) => {
@@ -205,103 +223,105 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
         </div>
       </div>
 
-      {/* 4 Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        {/* Available Balance Card */}
-        <div className="col-span-2 relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-[#0F291E]/80 via-[#0D1F17]/90 to-[#0A0E1A]/90 border border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.12)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono tracking-wider font-semibold text-emerald-400/90 uppercase">
-              {t('availablePayoutBalance')}
-            </span>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-3xl font-black tracking-tight text-white font-mono">
-                ${(stats?.availableBalance || 0).toFixed(2)}
-              </div>
-              <div className="text-[10px] text-[#64748B] font-mono mt-0.5">
-                {stats?.pendingWithdrawal && stats.pendingWithdrawal > 0 ? (
-                  <span className="text-amber-400/90">
-                    (${stats.pendingWithdrawal.toFixed(2)} {t('pendingPayoutsAmount').toLowerCase()})
-                  </span>
-                ) : (
-                  <span>Min. $10.00 USD</span>
-                )}
-              </div>
+      {/* Available Balance Card */}
+      <div className="relative overflow-hidden rounded-2xl p-4 mb-4 bg-gradient-to-br from-[#0F291E]/80 via-[#0D1F17]/90 to-[#0A0E1A]/90 border border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.12)]">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-mono tracking-wider font-semibold text-emerald-400/90 uppercase">
+            {t('availablePayoutBalance')}
+          </span>
+          <DollarSign className="w-4 h-4 text-emerald-400" />
+        </div>
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="text-3xl font-black tracking-tight text-white font-mono">
+              ${(stats?.availableBalance || 0).toFixed(2)}
             </div>
+            <div className="text-[10px] text-[#64748B] font-mono mt-0.5">
+              {stats?.pendingWithdrawal && stats.pendingWithdrawal > 0 ? (
+                <span className="text-amber-400/90">
+                  (${stats.pendingWithdrawal.toFixed(2)} {t('pendingPayoutsAmount').toLowerCase()})
+                </span>
+              ) : (
+                <span>Min. $10.00 USD</span>
+              )}
+            </div>
+          </div>
 
-            <button
-              onClick={() => {
-                setShowWithdrawModal(true);
-                setWithdrawError(null);
-                setWithdrawSuccess(null);
-              }}
-              disabled={(stats?.availableBalance || 0) < 10}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 shadow-lg ${
-                (stats?.availableBalance || 0) >= 10
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black shadow-emerald-500/25 active:scale-95 cursor-pointer'
-                  : 'bg-white/5 text-[#64748B] border border-white/10 cursor-not-allowed opacity-60'
-              }`}
-            >
-              <ArrowUpRight className="w-4 h-4" />
-              <span>{t('requestPayoutTitle')}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Total Referrals */}
-        <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
-          <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
-            <span className="text-[10px] font-mono uppercase font-semibold">
-              {t('totalReferralsCount')}
-            </span>
-            <Users className="w-3.5 h-3.5 text-[#38E8FF]" />
-          </div>
-          <div className="text-2xl font-black font-mono text-white">
-            {stats?.totalReferrals ?? 0}
-          </div>
-        </div>
-
-        {/* Active Paid Plans */}
-        <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
-          <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
-            <span className="text-[10px] font-mono uppercase font-semibold">
-              {t('activePaidPlansCount')}
-            </span>
-            <TrendingUp className="w-3.5 h-3.5 text-[#A855F7]" />
-          </div>
-          <div className="text-2xl font-black font-mono text-white">
-            {stats?.activePlansCount ?? 0}
-          </div>
-        </div>
-
-        {/* Total Earned */}
-        <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
-          <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
-            <span className="text-[10px] font-mono uppercase font-semibold">
-              {t('totalEarnedCommission')}
-            </span>
-            <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <div className="text-xl font-black font-mono text-emerald-400">
-            ${(stats?.totalEarned || 0).toFixed(2)}
-          </div>
-        </div>
-
-        {/* Total Withdrawn */}
-        <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
-          <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
-            <span className="text-[10px] font-mono uppercase font-semibold">
-              {t('totalWithdrawnAmount')}
-            </span>
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-          </div>
-          <div className="text-xl font-black font-mono text-teal-300">
-            ${(stats?.totalWithdrawn || 0).toFixed(2)}
-          </div>
+          <button
+            onClick={() => {
+              setShowWithdrawModal(true);
+              setWithdrawError(null);
+              setWithdrawSuccess(null);
+            }}
+            disabled={(stats?.availableBalance || 0) < 10}
+            className={`px-4 py-2 rounded-xl text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 shadow-lg ${
+              (stats?.availableBalance || 0) >= 10
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black shadow-emerald-500/25 active:scale-95 cursor-pointer'
+                : 'bg-white/5 text-[#64748B] border border-white/10 cursor-not-allowed opacity-60'
+            }`}
+          >
+            <ArrowUpRight className="w-4 h-4" />
+            <span>{t('requestPayoutTitle')}</span>
+          </button>
         </div>
       </div>
+
+      {/* 4 Stat Cards - Only displayed when user has active referrals */}
+      {((stats?.totalReferrals || 0) > 0 || Boolean(stats?.withdrawalsList && stats.withdrawalsList.length > 0)) && (
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {/* Total Referrals */}
+          <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
+            <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
+              <span className="text-[10px] font-mono uppercase font-semibold">
+                {t('totalReferralsCount')}
+              </span>
+              <Users className="w-3.5 h-3.5 text-[#38E8FF]" />
+            </div>
+            <div className="text-2xl font-black font-mono text-white">
+              {stats?.totalReferrals ?? 0}
+            </div>
+          </div>
+
+          {/* Active Paid Plans */}
+          <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
+            <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
+              <span className="text-[10px] font-mono uppercase font-semibold">
+                {t('activePaidPlansCount')}
+              </span>
+              <TrendingUp className="w-3.5 h-3.5 text-[#A855F7]" />
+            </div>
+            <div className="text-2xl font-black font-mono text-white">
+              {stats?.activePlansCount ?? 0}
+            </div>
+          </div>
+
+          {/* Total Earned */}
+          <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
+            <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
+              <span className="text-[10px] font-mono uppercase font-semibold">
+                {t('totalEarnedCommission')}
+              </span>
+              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-xl font-black font-mono text-emerald-400">
+              ${(stats?.totalEarned || 0).toFixed(2)}
+            </div>
+          </div>
+
+          {/* Total Withdrawn */}
+          <div className="rounded-2xl p-3.5 bg-[#0F172A]/70 border border-white/10">
+            <div className="flex items-center justify-between text-[#94A3B8] mb-1.5">
+              <span className="text-[10px] font-mono uppercase font-semibold">
+                {t('totalWithdrawnAmount')}
+              </span>
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            </div>
+            <div className="text-xl font-black font-mono text-teal-300">
+              ${(stats?.totalWithdrawn || 0).toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Personal Referral Link Section */}
       <div className="rounded-2xl p-4 mb-5 bg-[#0B1120]/90 border border-[#22D3EE]/25 shadow-lg">
@@ -352,161 +372,356 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
         </div>
       </div>
 
-      {/* Payout History Section */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-2.5 px-1">
-          <h2 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-teal-400" />
-            {t('payoutHistoryTitle')}
-          </h2>
-          {stats?.withdrawalsList && stats.withdrawalsList.length > 0 && (
-            <span className="text-[10px] font-mono text-[#64748B]">
-              {stats.withdrawalsList.length} total
+      {/* High-Volume Affiliate Partner Hub Card */}
+      <div className="relative overflow-hidden rounded-2xl p-5 mb-5 border border-[#A855F7]/35 bg-gradient-to-br from-[#1C1033]/90 via-[#0F172A]/95 to-[#0A0E1A]/95 shadow-[0_8px_32px_rgba(168,85,247,0.15)]">
+        <div className="absolute -top-12 -right-12 w-40 h-40 bg-[#A855F7]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-[#22D3EE]/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#A855F7]/20 border border-[#A855F7]/40 text-[#C084FC] text-[10px] font-mono font-bold tracking-wider">
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>{t('affiliateHubBadge')}</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              50% REVSHARE
             </span>
-          )}
+          </div>
+
+          <h2 className="text-base font-black tracking-tight text-white flex items-center gap-2 mb-1.5">
+            <Sparkles className="w-4 h-4 text-[#A855F7]" />
+            {t('affiliateHubTitle')}
+          </h2>
+
+          <p className="text-xs text-[#94A3B8] leading-relaxed mb-4">
+            {t('affiliateHubDesc')}
+          </p>
+
+          <button
+            onClick={handleContactAffiliate}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#A855F7] via-[#9333EA] to-[#38E8FF] hover:opacity-95 text-white font-mono text-xs font-black tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#A855F7]/25 transition-all active:scale-98 cursor-pointer"
+          >
+            <span>{t('contactAffiliateBtn')}</span>
+            <ExternalLink className="w-4 h-4" />
+          </button>
         </div>
-
-        {stats?.withdrawalsList && stats.withdrawalsList.length > 0 ? (
-          <div className="space-y-2">
-            {stats.withdrawalsList.map((w: WithdrawalRequest) => {
-              const dateStr = new Date(w.requestedAt).toLocaleDateString(
-                language === 'ru' ? 'ru-RU' : 'en-US',
-                {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              );
-              return (
-                <div
-                  key={w.id}
-                  className="rounded-xl p-3 bg-[#0F172A]/70 border border-white/10 flex items-center justify-between"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-white">
-                        ${w.amountUsd.toFixed(2)} USD
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-white/10 text-[#38E8FF]">
-                        {w.network}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono text-[#64748B]">
-                      {w.walletAddress.slice(0, 6)}...{w.walletAddress.slice(-6)} • {dateStr}
-                    </span>
-                    {w.txHash && (
-                      <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
-                        Tx: {w.txHash.slice(0, 10)}...
-                      </span>
-                    )}
-                    {w.note && (
-                      <span className="text-[9px] font-mono text-red-400">
-                        {w.note}
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    {w.status === 'PENDING' && (
-                      <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                        {t('statusPending')}
-                      </span>
-                    )}
-                    {w.status === 'PAID' && (
-                      <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        {t('statusPaid')}
-                      </span>
-                    )}
-                    {w.status === 'REJECTED' && (
-                      <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-red-500/15 text-red-400 border border-red-500/30">
-                        {t('statusRejected')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-xl p-4 bg-[#0F172A]/40 border border-white/5 text-center text-xs text-[#64748B] font-mono">
-            {t('noPayoutsYet')}
-          </div>
-        )}
       </div>
 
-      {/* Referred Operatives List */}
-      <div>
-        <div className="flex items-center justify-between mb-2.5 px-1">
-          <h2 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-[#38E8FF]" />
-            {t('referredUsersTitle')}
-          </h2>
-          {stats?.referralsList && stats.referralsList.length > 0 && (
-            <span className="text-[10px] font-mono text-[#64748B]">
-              {stats.referralsList.length} users
-            </span>
-          )}
-        </div>
+      {/* Conditional: For active referrers vs new referrers */}
+      {((stats?.totalReferrals || 0) > 0 || Boolean(stats?.withdrawalsList && stats.withdrawalsList.length > 0)) ? (
+        <>
+          {/* Payout History Section */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <h2 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-teal-400" />
+                {t('payoutHistoryTitle')}
+              </h2>
+              {stats?.withdrawalsList && stats.withdrawalsList.length > 0 && (
+                <span className="text-[10px] font-mono text-[#64748B]">
+                  {stats.withdrawalsList.length} total
+                </span>
+              )}
+            </div>
 
-        {stats?.referralsList && stats.referralsList.length > 0 ? (
-          <div className="space-y-2">
-            {stats.referralsList.map((ref) => {
-              const joined = new Date(ref.joinedAt).toLocaleDateString(
-                language === 'ru' ? 'ru-RU' : 'en-US',
-                {
-                  day: 'numeric',
-                  month: 'short',
-                }
-              );
-              const isPaidPlan = ref.plan && ref.plan !== 'community';
-              return (
-                <div
-                  key={ref.id}
-                  className="rounded-xl p-3 bg-[#0F172A]/70 border border-white/10 flex items-center justify-between"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">
-                        {ref.referredName || 'Operative'}
-                      </span>
-                      {ref.referredUsername && (
-                        <span className="text-[10px] text-[#64748B] font-mono">
-                          {ref.referredUsername.startsWith('@')
-                            ? ref.referredUsername
-                            : `@${ref.referredUsername}`}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono text-[#64748B]">
-                      Joined {joined}
-                    </span>
-                  </div>
-
-                  <div className="text-right flex flex-col items-end gap-1">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
-                        isPaidPlan
-                          ? 'bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/40'
-                          : 'bg-white/5 text-[#94A3B8] border border-white/10'
-                      }`}
+            {stats?.withdrawalsList && stats.withdrawalsList.length > 0 ? (
+              <div className="space-y-2">
+                {stats.withdrawalsList.map((w: WithdrawalRequest) => {
+                  const dateStr = new Date(w.requestedAt).toLocaleDateString(
+                    language === 'ru' ? 'ru-RU' : 'en-US',
+                    {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }
+                  );
+                  return (
+                    <div
+                      key={w.id}
+                      className="rounded-xl p-3 bg-[#0F172A]/70 border border-white/10 flex items-center justify-between"
                     >
-                      {ref.plan || 'COMMUNITY'}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      +${(ref.earnedUsd || 0).toFixed(2)}
-                    </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-white">
+                            ${w.amountUsd.toFixed(2)} USD
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-white/10 text-[#38E8FF]">
+                            {w.network}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[#64748B]">
+                          {w.walletAddress.slice(0, 6)}...{w.walletAddress.slice(-6)} • {dateStr}
+                        </span>
+                        {w.txHash && (
+                          <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+                            Tx: {w.txHash.slice(0, 10)}...
+                          </span>
+                        )}
+                        {w.note && (
+                          <span className="text-[9px] font-mono text-red-400">
+                            {w.note}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        {w.status === 'PENDING' && (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            {t('statusPending')}
+                          </span>
+                        )}
+                        {w.status === 'PAID' && (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            {t('statusPaid')}
+                          </span>
+                        )}
+                        {w.status === 'REJECTED' && (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-red-500/15 text-red-400 border border-red-500/30">
+                            {t('statusRejected')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl p-4 bg-[#0F172A]/40 border border-white/5 text-center text-xs text-[#64748B] font-mono">
+                {t('noPayoutsYet')}
+              </div>
+            )}
+          </div>
+
+          {/* Referred Operatives List */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <h2 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-[#38E8FF]" />
+                {t('referredUsersTitle')}
+              </h2>
+              {stats?.referralsList && stats.referralsList.length > 0 && (
+                <span className="text-[10px] font-mono text-[#64748B]">
+                  {stats.referralsList.length} users
+                </span>
+              )}
+            </div>
+
+            {stats?.referralsList && stats.referralsList.length > 0 ? (
+              <div className="space-y-2">
+                {stats.referralsList.map((ref) => {
+                  const joined = new Date(ref.joinedAt).toLocaleDateString(
+                    language === 'ru' ? 'ru-RU' : 'en-US',
+                    {
+                      day: 'numeric',
+                      month: 'short',
+                    }
+                  );
+                  const isPaidPlan = ref.plan && ref.plan !== 'community';
+                  return (
+                    <div
+                      key={ref.id}
+                      className="rounded-xl p-3 bg-[#0F172A]/70 border border-white/10 flex items-center justify-between"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">
+                            {ref.referredName || 'Operative'}
+                          </span>
+                          {ref.referredUsername && (
+                            <span className="text-[10px] text-[#64748B] font-mono">
+                              {ref.referredUsername.startsWith('@')
+                                ? ref.referredUsername
+                                : `@${ref.referredUsername}`}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-[#64748B]">
+                          Joined {joined}
+                        </span>
+                      </div>
+
+                      <div className="text-right flex flex-col items-end gap-1">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
+                            isPaidPlan
+                              ? 'bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/40'
+                              : 'bg-white/5 text-[#94A3B8] border border-white/10'
+                          }`}
+                        >
+                          {ref.plan || 'COMMUNITY'}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-emerald-400">
+                          +${(ref.earnedUsd || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl p-5 bg-[#0F172A]/40 border border-white/5 text-center text-xs text-[#64748B] font-mono">
+                {t('noReferralsYet')}
+              </div>
+            )}
+          </div>
+
+          {/* Collapsible Program Terms & Rules Accordion */}
+          <div className="rounded-2xl p-4 bg-[#0A0F1D]/80 border border-white/10">
+            <button
+              onClick={() => setShowTerms((prev) => !prev)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <span className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-2">
+                <FileText className="w-4 h-4 text-teal-400" />
+                {t('termsOfUseTitle')}
+              </span>
+              {showTerms ? (
+                <ChevronUp className="w-4 h-4 text-[#94A3B8]" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-[#94A3B8]" />
+              )}
+            </button>
+
+            {showTerms && (
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-2.5 animate-fadeIn">
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                    <span className="text-emerald-400">💰</span>
+                    <span>{t('rule1Title')}</span>
                   </div>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                    {t('rule1Desc')}
+                  </p>
                 </div>
-              );
-            })}
+
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                    <span className="text-teal-400">⚡</span>
+                    <span>{t('rule2Title')}</span>
+                  </div>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                    {t('rule2Desc')}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                    <span className="text-[#A855F7]">🚀</span>
+                    <span>{t('rule3Title')}</span>
+                  </div>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                    {t('rule3Desc')}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                    <span className="text-amber-400">🛡</span>
+                    <span>{t('rule4Title')}</span>
+                  </div>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                    {t('rule4Desc')}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="rounded-xl p-5 bg-[#0F172A]/40 border border-white/5 text-center text-xs text-[#64748B] font-mono">
-            {t('noReferralsYet')}
+        </>
+      ) : (
+        /* New Operatives View: How It Works & Full Rules & Terms */
+        <>
+          {/* How The 50% Program Works */}
+          <div className="rounded-2xl p-5 mb-5 bg-[#0F172A]/70 border border-white/10">
+            <h3 className="text-xs font-mono font-bold tracking-wider text-[#38E8FF] uppercase flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4 text-[#38E8FF]" />
+              {t('howItWorksTitle')}
+            </h3>
+
+            <div className="space-y-3.5">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-[#22D3EE]/15 border border-[#22D3EE]/30 text-[#22D3EE] flex items-center justify-center font-mono font-bold text-xs flex-shrink-0">
+                  1
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-0.5">{t('step1Head')}</h4>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed">{t('step1Text')}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-[#A855F7]/15 border border-[#A855F7]/30 text-[#A855F7] flex items-center justify-center font-mono font-bold text-xs flex-shrink-0">
+                  2
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-0.5">{t('step2Head')}</h4>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed">{t('step2Text')}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-mono font-bold text-xs flex-shrink-0">
+                  3
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-0.5">{t('step3Head')}</h4>
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed">{t('step3Text')}</p>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Program Rules & Terms of Use */}
+          <div className="rounded-2xl p-5 mb-5 bg-[#0A0F1D]/80 border border-white/10">
+            <h3 className="text-xs font-mono font-bold tracking-wider text-[#94A3B8] uppercase flex items-center gap-2 mb-3.5">
+              <FileText className="w-4 h-4 text-teal-400" />
+              {t('termsOfUseTitle')}
+            </h3>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                  <span className="text-emerald-400">💰</span>
+                  <span>{t('rule1Title')}</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                  {t('rule1Desc')}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                  <span className="text-teal-400">⚡</span>
+                  <span>{t('rule2Title')}</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                  {t('rule2Desc')}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                  <span className="text-[#A855F7]">🚀</span>
+                  <span>{t('rule3Title')}</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                  {t('rule3Desc')}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+                  <span className="text-amber-400">🛡</span>
+                  <span>{t('rule4Title')}</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed pl-5">
+                  {t('rule4Desc')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Payout Modal */}
       {showWithdrawModal && (
