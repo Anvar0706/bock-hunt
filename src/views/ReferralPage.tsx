@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Clock,
   AlertCircle,
-  RefreshCw,
   Gift,
   Sparkles,
   ExternalLink,
@@ -36,7 +35,6 @@ interface ReferralPageProps {
 export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
   const { t, language } = useLanguage();
   const [stats, setStats] = useState<ReferralStats | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [showTerms, setShowTerms] = useState<boolean>(false);
   const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
@@ -65,11 +63,10 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
   };
 
   const fetchStats = useCallback(
-    async (isManual = false) => {
+    async () => {
       if (!userId) {
         return;
       }
-      if (isManual) setIsRefreshing(true);
       try {
         const res = await fetch(`/api/referrals/stats?tgId=${userId}`);
         const data = await res.json();
@@ -78,8 +75,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
         }
       } catch (err) {
         console.error('Error fetching referral stats:', err);
-      } finally {
-        if (isManual) setIsRefreshing(false);
       }
     },
     [userId]
@@ -116,36 +111,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
       window.open(shareUrl, '_blank');
     }
   };
-
-  const renderCreatorPromoCard = () => (
-    <div className="rounded-2xl p-4 mb-5 bg-[#0F172A]/70 border border-white/10 hover:border-[#A855F7]/30 transition-all flex flex-col gap-2.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="p-1 rounded-lg bg-[#A855F7]/15 text-[#C084FC] border border-[#A855F7]/30">
-            <Sparkles className="w-3.5 h-3.5" />
-          </span>
-          <span className="text-xs font-bold text-white tracking-wide">
-            {t('affiliateHubTitle')}
-          </span>
-        </div>
-        <span className="text-[9px] font-mono font-bold text-[#A855F7] bg-[#A855F7]/10 px-2 py-0.5 rounded border border-[#A855F7]/25 uppercase">
-          {t('affiliateHubBadge')}
-        </span>
-      </div>
-
-      <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-        {t('affiliateHubDesc')}
-      </p>
-
-      <button
-        onClick={handleContactAffiliate}
-        className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#A855F7]/40 text-xs font-mono font-semibold text-[#E2E8F0] hover:text-white flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
-      >
-        <span>{t('contactAffiliateBtn')}</span>
-        <ExternalLink className="w-3.5 h-3.5 text-[#A855F7]" />
-      </button>
-    </div>
-  );
 
   // Payout validation
   const validateAddress = (net: WithdrawalNetwork, addr: string): boolean => {
@@ -250,15 +215,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
               {t('referralCommissionDesc')}
             </p>
           </div>
-
-          <button
-            onClick={() => fetchStats(true)}
-            disabled={isRefreshing}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#94A3B8] hover:text-white border border-white/10 transition-all active:scale-95"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#22D3EE]' : ''}`} />
-          </button>
         </div>
       </div>
 
@@ -570,9 +526,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
             )}
           </div>
 
-          {/* Creator & Promo Assets for Active Referrers */}
-          {renderCreatorPromoCard()}
-
           {/* Collapsible Program Terms & Rules Accordion */}
           <div className="rounded-2xl p-4 bg-[#0A0F1D]/80 border border-white/10">
             <button
@@ -677,9 +630,6 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
               </div>
             </div>
           </div>
-
-          {/* Creator & Promo Assets for New Operatives */}
-          {renderCreatorPromoCard()}
 
           {/* Program Rules & Terms of Use */}
           <div className="rounded-2xl p-5 mb-5 bg-[#0A0F1D]/80 border border-white/10">
