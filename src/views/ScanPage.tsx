@@ -102,26 +102,38 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const [privateKeyDisplay, setPrivateKeyDisplay] = useState('N/A');
 
   // Initial terminal logs
-  const [logs, setLogs] = useState<TerminalLog[]>([
-    {
-      id: 'init-1',
-      text: 'BlockHunt Protocol v3.8 initialized',
-      statusType: 'system',
-      timestamp: '12:00:01',
-    },
-    {
-      id: 'init-2',
-      text: isCommunityPlan ? 'Single-chain network engine ready [TRON]' : 'Network clusters ready [TRC-20, ERC-20, SOL]',
-      statusType: 'success',
-      timestamp: '12:00:02',
-    },
-    {
-      id: 'init-3',
-      text: 'System standby. Tap START SECURITY SCAN to begin deep extraction.',
-      statusType: 'system',
-      timestamp: '12:00:03',
-    },
-  ]);
+  const [logs, setLogs] = useState<TerminalLog[]>(() => {
+    const now = new Date();
+    const t1 = new Date(now.getTime() - 2000).toLocaleTimeString();
+    const t2 = new Date(now.getTime() - 1000).toLocaleTimeString();
+    const t3 = now.toLocaleTimeString();
+    return [
+      {
+        id: 'init-1',
+        prefix: '[SYSTEM]',
+        text: 'BlockHunt Protocol v3.8 initialized',
+        statusText: '[ONLINE]',
+        statusType: 'system',
+        timestamp: t1,
+      },
+      {
+        id: 'init-2',
+        prefix: '[NETWORK]',
+        text: isCommunityPlan ? 'Single-chain network engine ready [TRON]' : 'Network clusters ready [TRC-20, ERC-20, SOL]',
+        statusText: '[READY]',
+        statusType: 'success',
+        timestamp: t2,
+      },
+      {
+        id: 'init-3',
+        prefix: '[STANDBY]',
+        text: 'System standby. Tap START SECURITY SCAN to begin deep extraction.',
+        statusText: '[STANDBY]',
+        statusType: 'system',
+        timestamp: t3,
+      },
+    ];
+  });
 
   const scanIntervalRef = useRef<number | null>(null);
   const cancelResetTimeoutRef = useRef<number | null>(null);
