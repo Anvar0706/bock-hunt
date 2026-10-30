@@ -77,17 +77,6 @@ export const TelegramHeader: React.FC<TelegramHeaderProps> = ({
             <span className={language === 'ru' ? 'text-[#38E8FF]' : 'text-[#64748B]'}>RU</span>
           </button>
 
-          {/* Quick License Plans Button (hidden on mobile to ensure 3-dots menu button is always visible) */}
-          <button
-            onClick={onOpenLicensing}
-            type="button"
-            className="w-8 h-8 rounded-xl hidden sm:flex items-center justify-center bg-[#22D3EE]/10 border border-[#22D3EE]/30 text-[#38E8FF] hover:bg-[#22D3EE]/20 transition-all shadow-[0_0_10px_rgba(34,211,238,0.2)] cursor-pointer active:scale-95 shrink-0"
-            title={t('menuLicensing')}
-            aria-label="Software Licensing"
-          >
-            <Crown className="w-4 h-4" />
-          </button>
-
           {/* Telegram Menu 3-Dots Button (Guaranteed Visible) */}
           <div className="relative shrink-0">
             <button

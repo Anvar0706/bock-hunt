@@ -106,24 +106,24 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   const plans: PlanItem[] = [
     {
       id: 'community',
-      name: 'COMMUNITY',
-      description: 'Standard security testing & basic analysis',
+      name: t('planCommunityName'),
+      description: t('planCommunityDesc'),
       priceWeekly: 'FREE',
       priceMonthly: 'FREE',
       weeklyUsd: 0,
       monthlyUsd: 0,
       features: [
-        'Single target scan limit (1/1 address)',
-        'Withdrawals authorized under $100 only',
-        '4 Virtual worker threads',
-        'Standard dictionary seeds',
+        t('planCommunityF1'),
+        t('planCommunityF2'),
+        t('planCommunityF3'),
+        t('planCommunityF4'),
       ],
       isPopular: false,
     },
     {
       id: 'pro',
-      name: 'PRO SUITE',
-      description: 'Advanced multi-threaded scanning power',
+      name: t('planProName'),
+      description: t('planProDesc'),
       priceWeekly: `$${proWeeklyUsd}`,
       priceMonthly: `$${proMonthlyUsd}`,
       originalPriceWeekly: isDiscount ? `$${proBaseWeekly}` : undefined,
@@ -131,18 +131,18 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       weeklyUsd: proWeeklyUsd,
       monthlyUsd: proMonthlyUsd,
       features: [
-        'High-capacity withdrawals up to $10,000+',
-        'Unlimited target address extractions',
-        '16 High-performance worker threads',
-        'Multi-network parallel clustering (TRC + ERC + SOL)',
-        'Priority mempool routing & zero delay',
+        t('planProF1'),
+        t('planProF2'),
+        t('planProF3'),
+        t('planProF4'),
+        t('planProF5'),
       ],
       isPopular: true,
     },
     {
       id: 'enterprise',
-      name: 'ENTERPRISE',
-      description: 'Maximum computing capacity & custom RPCs',
+      name: t('planEnterpriseName'),
+      description: t('planEnterpriseDesc'),
       priceWeekly: `$${entWeeklyUsd}`,
       priceMonthly: `$${entMonthlyUsd}`,
       originalPriceWeekly: isDiscount ? `$${entBaseWeekly}` : undefined,
@@ -150,11 +150,11 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       weeklyUsd: entWeeklyUsd,
       monthlyUsd: entMonthlyUsd,
       features: [
-        'Unrestricted withdrawals up to $50,000+',
-        'Unlimited target address extractions',
-        '64 Ultra threads & real-time hash collision',
-        'Dedicated RPC node cluster routing',
-        '24/7 SLA infrastructure support',
+        t('planEnterpriseF1'),
+        t('planEnterpriseF2'),
+        t('planEnterpriseF3'),
+        t('planEnterpriseF4'),
+        t('planEnterpriseF5'),
       ],
       isPopular: false,
     },
@@ -406,7 +406,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
                   <span>{t('planActivatedSuccess')}</span>
                 </div>
                 <span className="text-[10px] font-mono text-[#CBD5E1]">
-                  System parameters upgraded to {activatedSuccess.toUpperCase()}
+                  {t('planUpgradedTo')} {activatedSuccess.toUpperCase()}
                 </span>
               </div>
             )}

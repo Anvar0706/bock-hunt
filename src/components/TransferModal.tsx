@@ -249,7 +249,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     {t('txBroadcasted')}
                   </h4>
                   <p className="text-xs font-mono text-[#00E676] font-semibold mt-0.5">
-                    ALL {completedTx.amount} {completedTx.symbol} DISPATCHED // 100% SWEEP
+                    {language === 'ru' ? `ВСЕ ${completedTx.amount} ${completedTx.symbol} ВЫВЕДЕНЫ // 100% SWEEP` : `ALL ${completedTx.amount} ${completedTx.symbol} WITHDRAWN // 100% SWEEP`}
                   </p>
                 </div>
 

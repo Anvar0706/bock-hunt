@@ -123,7 +123,7 @@ export const WalletPage: React.FC<WalletPageProps> = ({
               className="w-full py-3 rounded-2xl button-dark-metal flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-white hover:text-[#38E8FF] uppercase select-none cursor-pointer"
             >
               <Send className="w-3.5 h-3.5 text-[#22D3EE]" />
-              <span>{t('dispatchAssets')}</span>
+              <span>{t('withdrawAssets')}</span>
             </button>
           ) : (
             <button
@@ -246,7 +246,7 @@ export const WalletPage: React.FC<WalletPageProps> = ({
                       className="px-3 py-1.5 rounded-xl bg-[#22D3EE]/10 hover:bg-[#22D3EE]/20 border border-[#22D3EE]/30 text-xs font-mono font-bold text-[#38E8FF] flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       <Send className="w-3 h-3 text-[#22D3EE]" />
-                      <span>{t('dispatchAssets')}</span>
+                      <span>{t('withdraw')}</span>
                     </button>
                   </div>
                 )}
@@ -278,10 +278,10 @@ export const WalletPage: React.FC<WalletPageProps> = ({
                 </div>
                 <div>
                   <div className="font-semibold text-white">
-                    Transfer to {tx.to}
+                    {t('transferTo')} {tx.to}
                   </div>
                   <div className="text-[10px] font-mono text-[#9CA3AF]">
-                    {tx.timestamp} • {tx.fee} fee
+                    {tx.timestamp} • {tx.fee} {t('feeLabel')}
                   </div>
                 </div>
               </div>

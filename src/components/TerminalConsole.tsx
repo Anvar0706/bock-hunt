@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { TerminalLog, ScanState, ExtractedWallet } from '../types';
 import { useParallax } from '../hooks/useParallax';
-import { Terminal as TerminalIcon, Sparkles } from 'lucide-react';
+import { Terminal as TerminalIcon, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface TerminalConsoleProps {
@@ -217,17 +217,16 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                       </span>
                     </div>
                   </div>
-                  {onTransfer && (
-                    <button
-                      onClick={() => onTransfer(matchedWallet)}
-                      type="button"
-                      className="mt-2.5 w-full py-2 rounded-lg bg-[#00E676] hover:bg-[#00C853] text-black font-extrabold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(0,230,118,0.4)] active:scale-98"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>DISPATCH / SWEEP TO VAULT</span>
-                      <span>&rarr;</span>
-                    </button>
-                  )}
+
+                  <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
+                    <span className="flex items-center gap-1.5 font-bold text-[#00E676]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span>{t('targetKeyVerified')}</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-[#00E676]/10 text-[#00E676] border border-[#00E676]/30 text-[9px] font-bold">
+                      READY
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -235,7 +234,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
               <div className={`flex items-center gap-1.5 pt-1 font-mono-terminal ${isMatchFound ? 'text-[#00E676]' : 'text-[#22D3EE]'}`}>
                 <span className="text-[11px]">&gt;</span>
                 {isMatchFound ? (
-                  <span className="text-[10px] font-bold tracking-wide">COLLISION_RESOLVED // AWAITING OPERATOR DISPATCH</span>
+                  <span className="text-[10px] font-bold tracking-wide">COLLISION_RESOLVED // AWAITING OPERATOR WITHDRAWAL</span>
                 ) : null}
                 <span className={`w-2 h-3.5 inline-block animate-terminal-blink ${isMatchFound ? 'bg-[#00E676]' : 'bg-[#22D3EE]'}`} />
               </div>

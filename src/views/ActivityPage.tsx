@@ -57,7 +57,7 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
             {t('noScansYet')}
           </h3>
           <p className="text-xs text-[#9CA3AF] max-w-xs mx-auto">
-            Commence an extraction session from the Scan console to populate the audit trail.
+            {t('activityEmptyDesc')}
           </p>
         </div>
       ) : (
@@ -126,10 +126,10 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
 
                 <div>
                   <span className="text-[9px] text-[#9CA3AF] uppercase block">
-                    STATE
+                    {t('stateLabel')}
                   </span>
                   <span className="text-xs font-bold text-[#38E8FF]">
-                    SYNC
+                    {t('stateSync')}
                   </span>
                 </div>
               </div>
@@ -142,7 +142,7 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
               type="button"
               className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#9CA3AF] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors mt-2 cursor-pointer"
             >
-              {language === 'ru' ? `Показать еще (+${Math.min(10, scans.length - visibleCount)})` : `Load More (+${Math.min(10, scans.length - visibleCount)})`}
+              {t('loadMore')} (+{Math.min(10, scans.length - visibleCount)})
             </button>
           )}
         </div>

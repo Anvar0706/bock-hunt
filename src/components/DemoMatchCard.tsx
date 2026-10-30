@@ -135,26 +135,23 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Verification Status Footer */}
           <div className="w-full">
             {isDispatched ? (
-              <button
-                disabled
-                type="button"
-                className="w-full py-3.5 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#00E676] uppercase select-none cursor-not-allowed"
-              >
+              <div className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#00E676] uppercase select-none">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
                 <span>{t('balanceDispatched')} (0.00 {wallet.symbol})</span>
-              </button>
+              </div>
             ) : (
-              <button
-                onClick={handleTransferClick}
-                type="button"
-                className="w-full py-3.5 px-4 rounded-xl button-dark-metal flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-white hover:text-[#38E8FF] uppercase select-none cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5 text-[#22D3EE]" />
-                <span>{t('initiateTransfer')}</span>
-              </button>
+              <div className="w-full py-2.5 px-4 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 flex items-center justify-between text-xs font-mono select-none">
+                <span className="flex items-center gap-2 text-[#00E676] font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-[#00E676]" />
+                  <span>{t('targetKeyVerified')}</span>
+                </span>
+                <span className="text-[10px] text-[#9CA3AF] uppercase font-bold px-2 py-0.5 rounded bg-black/40 border border-white/5">
+                  100% UNLOCKED
+                </span>
+              </div>
             )}
           </div>
         </div>

