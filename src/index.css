@@ -2,17 +2,31 @@
 
 @layer base {
   :root {
-    --app-bg: #181820;
-    --app-bg-secondary: #1D1D28;
-    --app-surface: #222330;
-    --terminal-bg: #0d1522;
-    --terminal-surface: #131E2E;
+    /* Obsidian Protocol Core Surface Tokens */
+    --app-bg: #0A0C10;
+    --surface-canvas: #0A0C10;
+    --surface-card: #12151F;
+    --surface-card-border: rgba(255, 255, 255, 0.08);
+    --surface-inset: #0B0D14;
+    --surface-inset-border: rgba(255, 255, 255, 0.04);
+    --surface-overlay: #161A26;
+    --surface-overlay-border: rgba(255, 255, 255, 0.12);
+    
+    /* Terminal Console Tokens */
+    --terminal-bg: #090B10;
+    --terminal-surface: #0E121B;
+    
+    /* Semantic Precision Accents (Muted & Authoritative) */
     --cyan-primary: #22D3EE;
     --cyan-bright: #38E8FF;
-    --green-accent: #00E676;
-    --red-accent: #FF2D2D;
-    --text-primary: #F5F7FA;
-    --text-muted: #9CA3AF;
+    --emerald-accent: #00E676;
+    --amber-accent: #F59E0B;
+    --ruby-accent: #EF4444;
+    
+    /* Monochromatic Text Hierarchy */
+    --text-primary: #F8FAFC;
+    --text-secondary: #CBD5E1;
+    --text-muted: #64748B;
   }
 
   body {
@@ -26,152 +40,125 @@
     overflow-x: hidden;
   }
 
-  /* Monospace font utility */
+  /* Monospace font utility strictly for cryptographic telemetry and logs */
   .font-mono-terminal {
     font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
+    font-feature-settings: "zero" on, "cv02" on;
   }
 }
 
 /* ============================================================
-   3D MATERIAL DESIGN SYSTEM & GLASS
+   OBSIDIAN PROTOCOL: PRECISION GLASS & SURFACE TOKENS
    ============================================================ */
 
-/* Smoked Dark Glass Panel */
+/* Primary Obsidian Structural Panel */
 .glass-panel-3d {
-  background: linear-gradient(145deg, rgba(35, 36, 50, 0.76) 0%, rgba(22, 23, 34, 0.86) 100%);
+  background: linear-gradient(160deg, rgba(20, 24, 34, 0.88) 0%, rgba(13, 16, 24, 0.94) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-card-border);
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4),
-    0 14px 30px -6px rgba(0, 0, 0, 0.55),
-    0 4px 10px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 4px 16px -2px rgba(0, 0, 0, 0.6),
+    0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* Elevated Floating Glass Card */
+/* Elevated Telemetry Card */
 .glass-card-elevated {
-  background: linear-gradient(160deg, rgba(40, 42, 58, 0.8) 0%, rgba(25, 26, 38, 0.88) 100%);
+  background: linear-gradient(165deg, rgba(24, 29, 42, 0.85) 0%, rgba(14, 18, 27, 0.95) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 
-    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.5),
-    0 16px 36px -8px rgba(0, 0, 0, 0.65),
-    0 6px 14px rgba(0, 0, 0, 0.4);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 10px 28px -6px rgba(0, 0, 0, 0.7),
+    0 2px 6px rgba(0, 0, 0, 0.4);
   transform: translateZ(0);
   contain: layout style;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
 }
 
 .glass-card-elevated:active {
-  transform: translateY(2px) scale(0.985) translateZ(0);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.6),
-    0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  transform: translateY(1.5px) scale(0.99) translateZ(0);
 }
 
-/* Futuristic Hero Terminal Outer Shell */
+/* Hardware Telemetry Outer Shell */
 .terminal-shell-3d {
-  background: linear-gradient(175deg, #182232 0%, #0d1522 100%);
-  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: linear-gradient(180deg, #10141E 0%, #080A10 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
-    0 0 35px -8px rgba(34, 211, 238, 0.22),
-    0 0 15px -3px rgba(34, 211, 238, 0.15),
-    inset 0 1.5px 1.5px 0 rgba(56, 232, 255, 0.35),
-    inset 0 -2px 5px 0 rgba(0, 0, 0, 0.8),
-    0 24px 48px -12px rgba(0, 0, 0, 0.7);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    0 12px 32px -8px rgba(0, 0, 0, 0.85),
+    0 2px 8px rgba(0, 0, 0, 0.5);
   position: relative;
   overflow: hidden;
   transform: translateZ(0);
   contain: layout style;
 }
 
-/* Inner Screen with CRT/Cyber subtle scanline feel */
+/* Deep Inset Screen for Cryptographic Log Stream */
 .terminal-screen-inner {
-  background: radial-gradient(circle at 50% 20%, #121C2B 0%, #090E17 100%);
+  background: #07090E;
+  border: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: 
-    inset 0 2px 10px rgba(0, 0, 0, 0.9),
-    inset 0 0 25px rgba(0, 0, 0, 0.7);
+    inset 0 2px 8px rgba(0, 0, 0, 0.9),
+    inset 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
-/* Liquid Glass Controls */
-.liquid-glass-control {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.2),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
-    0 8px 20px rgba(0, 0, 0, 0.35);
-}
-
-/* Dark Metal 3D Primary Button */
+/* High-Torque Titanium Primary Button */
 .button-dark-metal {
-  background: linear-gradient(180deg, #2D3042 0%, #191B26 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.6);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #232736 0%, #141722 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.8);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 
-    0 0 24px -4px rgba(34, 211, 238, 0.35),
-    0 10px 24px -4px rgba(0, 0, 0, 0.65),
-    0 3px 6px rgba(0, 0, 0, 0.4),
-    inset 0 1px 1px rgba(255, 255, 255, 0.25);
-  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    0 4px 14px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .button-dark-metal:active {
-  transform: translateY(2px) scale(0.98);
+  transform: translateY(1.5px) scale(0.985);
   box-shadow: 
-    0 0 15px -2px rgba(34, 211, 238, 0.25),
-    0 4px 10px rgba(0, 0, 0, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.6),
     inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* Cancel Button with Red Rim & Glow */
+/* Cancel / Abort Button */
 .button-cancel-3d {
-  background: linear-gradient(180deg, rgba(46, 20, 24, 0.85) 0%, rgba(28, 12, 14, 0.95) 100%);
-  border: 1px solid rgba(255, 45, 45, 0.5);
-  border-top: 1px solid rgba(255, 100, 100, 0.65);
+  background: linear-gradient(180deg, rgba(38, 18, 22, 0.9) 0%, rgba(20, 10, 12, 0.95) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-top: 1px solid rgba(248, 113, 113, 0.45);
   box-shadow: 
-    0 0 25px -4px rgba(255, 45, 45, 0.4),
-    0 10px 24px -4px rgba(0, 0, 0, 0.7),
-    inset 0 1px 2px rgba(255, 100, 100, 0.3),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.6);
-  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    0 4px 16px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(248, 113, 113, 0.2);
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .button-cancel-3d:active {
-  transform: translateY(2px) scale(0.97);
-  box-shadow: 
-    0 0 12px -2px rgba(255, 45, 45, 0.25),
-    0 4px 10px rgba(0, 0, 0, 0.6);
+  transform: translateY(1.5px) scale(0.985);
 }
 
 /* 3D Hardware Socket for Network Buttons */
 .hardware-socket {
-  background: radial-gradient(circle at 50% 40%, #151622 0%, #0D0E17 100%);
+  background: radial-gradient(circle at 50% 30%, #12141D 0%, #090A0F 100%);
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 
-    inset 0 3px 6px rgba(0, 0, 0, 0.8),
-    inset 0 -1px 2px rgba(255, 255, 255, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+    inset 0 2px 5px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* Floating Bottom Navigation Bar */
+/* Floating Bottom Navigation Dock */
 .bottom-nav-glass {
-  background: linear-gradient(180deg, rgba(32, 34, 48, 0.86) 0%, rgba(18, 19, 28, 0.94) 100%);
+  background: linear-gradient(180deg, rgba(22, 26, 36, 0.9) 0%, rgba(12, 14, 20, 0.96) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
-    0 -4px 25px -5px rgba(0, 0, 0, 0.6),
-    0 18px 40px -8px rgba(0, 0, 0, 0.8),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+    0 -4px 20px -2px rgba(0, 0, 0, 0.7),
+    0 14px 32px -4px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* Safe areas for iOS */
@@ -184,8 +171,40 @@
 }
 
 /* ============================================================
-   ANIMATIONS & EFFECTS
+   ANIMATIONS & TRANSITIONS (PRECISE & NON-INTRUSIVE)
    ============================================================ */
+
+/* Smooth Native Bottom Drawer Slide Entrance */
+@keyframes drawer-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-drawer-enter {
+  animation: drawer-slide-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Modal 3D entrance (Elevated & Calm) */
+@keyframes modal-enter-3d {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-modal-3d {
+  animation: modal-enter-3d 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
 /* Vertical Scanning Beam Animation */
 @keyframes scan-beam {
@@ -193,11 +212,11 @@
     top: -5%;
     opacity: 0;
   }
-  15% {
-    opacity: 0.9;
+  20% {
+    opacity: 0.7;
   }
-  85% {
-    opacity: 0.9;
+  80% {
+    opacity: 0.7;
   }
   100% {
     top: 105%;
@@ -206,54 +225,26 @@
 }
 
 .animate-scan-beam {
-  animation: scan-beam 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: scan-beam 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* Breathing Cyan Glow */
+/* Controlled Status Breathing */
 @keyframes breathing-glow {
   0%, 100% {
     box-shadow: 
-      0 0 20px -3px rgba(34, 211, 238, 0.35),
-      0 10px 24px -4px rgba(0, 0, 0, 0.65),
-      inset 0 1px 1px rgba(255, 255, 255, 0.25);
+      0 4px 14px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
   50% {
     box-shadow: 
-      0 0 38px 0px rgba(56, 232, 255, 0.65),
-      0 12px 28px -2px rgba(0, 0, 0, 0.75),
-      inset 0 1px 2px rgba(255, 255, 255, 0.45);
+      0 0 18px 0px rgba(34, 211, 238, 0.35),
+      0 6px 18px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
 }
 
 .animate-breathing-glow {
-  animation: breathing-glow 2.2s ease-in-out infinite;
-}
-
-/* Subtle Idle Floating */
-@keyframes float-subtle-1 {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes float-subtle-2 {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-2.5px);
-  }
-}
-
-.animate-float-1 {
-  animation: float-subtle-1 5s ease-in-out infinite;
-}
-
-.animate-float-2 {
-  animation: float-subtle-2 6.5s ease-in-out infinite;
+  animation: breathing-glow 2.4s ease-in-out infinite;
 }
 
 /* Terminal Cursor Blink */
@@ -270,52 +261,7 @@
   animation: terminal-blink 1s infinite;
 }
 
-/* Modal 3D Z-axis entrance */
-@keyframes modal-enter-3d {
-  0% {
-    opacity: 0;
-    transform: perspective(800px) translateY(24px) scale(0.92);
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(800px) translateY(0) scale(1);
-  }
-}
-
-.animate-modal-3d {
-  animation: modal-enter-3d 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Pulse badge */
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
-  }
-}
-
-.pulse-ring-cyan {
-  animation: pulse-ring 2s infinite;
-}
-
-/* Scanlines overlay */
-.scanlines-overlay {
-  background: linear-gradient(
-    rgba(18, 24, 38, 0) 50%, 
-    rgba(0, 0, 0, 0.25) 50%
-  );
-  background-size: 100% 4px;
-}
-
-/* Terminal scrolling container with instant DOM synchronization */
+/* Custom scrollbar for terminal with dark slate track */
 .terminal-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: auto !important;
@@ -323,17 +269,16 @@
   overscroll-behavior: contain;
 }
 
-/* Custom scrollbar for terminal */
 .terminal-scroll::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 .terminal-scroll::-webkit-scrollbar-track {
-  background: rgba(10, 15, 25, 0.5);
+  background: rgba(10, 13, 20, 0.6);
 }
 .terminal-scroll::-webkit-scrollbar-thumb {
-  background: rgba(34, 211, 238, 0.3);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
 }
 .terminal-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.4);
 }

@@ -908,13 +908,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           <CancelButton onClick={handleCancelScan} />
         ) : foundMatch ? (
           <>
-            {/* Direct High-Contrast Action Button when wallet is matched! */}
+            {/* Direct High-Contrast Action Button when wallet is matched */}
             <button
               onClick={() => setTransferModalWallet(foundMatch)}
               type="button"
-              className="w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-3 relative overflow-hidden font-extrabold tracking-wider text-sm uppercase bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00E676] text-black shadow-[0_0_30px_rgba(0,230,118,0.5)] active:scale-98 transition-all cursor-pointer animate-pulse"
+              className="w-full py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2.5 relative overflow-hidden font-bold tracking-wider text-xs uppercase bg-[#00E676] hover:bg-[#00C853] text-black shadow-[0_4px_16px_rgba(0,230,118,0.25)] active:scale-98 transition-all cursor-pointer"
             >
-              <Sparkles className="w-5 h-5 text-black" />
+              <Sparkles className="w-4 h-4 text-black" />
               <span>{t('withdrawAssets')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
             </button>
 

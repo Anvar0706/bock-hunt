@@ -21,40 +21,44 @@ export const ScanButton: React.FC<ScanButtonProps> = React.memo(({
 }) => {
   const { t } = useLanguage();
 
+  const handleClick = () => {
+    try {
+      (window as any)?.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('medium');
+    } catch {}
+    onClick();
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled || isScanning}
       type="button"
-      className={`w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-3 relative overflow-hidden font-bold tracking-widest text-sm uppercase transition-all duration-200 select-none ${
+      className={`w-full py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2.5 relative overflow-hidden font-bold tracking-[0.08em] text-xs uppercase transition-all duration-150 select-none cursor-pointer ${
         isScanning
-          ? 'button-dark-metal animate-breathing-glow text-[#38E8FF] cursor-not-allowed opacity-95'
+          ? 'button-dark-metal text-[#38E8FF] cursor-not-allowed opacity-90'
           : isWarning
-          ? 'bg-gradient-to-r from-[#FFB300]/20 via-[#FF8F00]/20 to-[#FFB300]/20 border border-[#FFB300]/50 text-[#FFD54F] hover:text-white cursor-pointer shadow-[0_0_20px_rgba(255,179,0,0.25)]'
-          : 'button-dark-metal text-white hover:text-[#38E8FF] cursor-pointer'
-      } ${disabled && !isWarning ? 'opacity-50 cursor-not-allowed' : ''}`}
+          ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white'
+          : 'button-dark-metal text-white hover:text-[#38E8FF]'
+      } ${disabled && !isWarning ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
-      {/* Top Glass Edge Highlight */}
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38E8FF]/80 to-transparent pointer-events-none" />
-
-      {/* Button Interior Ambient Light */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#22D3EE]/10 to-transparent pointer-events-none" />
+      {/* Top Hairline Light Accent */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
       {/* Icon & Label */}
-      <div className="relative z-10 flex items-center gap-2.5">
+      <div className="relative z-10 flex items-center gap-2">
         {isScanning ? (
           <>
-            <Loader2 className="w-5 h-5 text-[#22D3EE] animate-spin" />
-            <span className="drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+            <Loader2 className="w-4 h-4 text-[#22D3EE] animate-spin" />
+            <span className="font-mono-terminal">
               {t('scanningBtn')}
             </span>
           </>
         ) : (
           <>
             {customIcon || (
-              <ShieldCheck className="w-5 h-5 text-[#22D3EE] drop-shadow-[0_0_6px_rgba(34,211,238,0.7)]" />
+              <ShieldCheck className="w-4 h-4 text-[#22D3EE]" />
             )}
-            <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]">
+            <span>
               {customLabel || t('startScan')}
             </span>
           </>

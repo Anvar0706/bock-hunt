@@ -81,42 +81,31 @@ export const Network3DButton: React.FC<Network3DButtonProps> = ({
       type="button"
       className="flex flex-col items-center gap-2 group focus:outline-none select-none transition-all duration-300"
     >
-      {/* Outer 3D Hardware Socket */}
+      {/* Outer Hardware Socket */}
       <div
-        className={`relative w-16 h-16 rounded-full flex items-center justify-center p-1 hardware-socket transition-all duration-300 ${
+        className={`relative w-15 h-15 rounded-2xl flex items-center justify-center p-1 transition-all duration-200 ${
           isSelected
-            ? 'scale-105 shadow-[0_0_24px_rgba(34,211,238,0.35),0_12px_24px_rgba(0,0,0,0.6)] border border-white/25'
-            : 'scale-95 opacity-55 hover:opacity-80 border border-white/5'
+            ? 'scale-100 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-white/20 bg-[#161A26]'
+            : 'scale-95 opacity-50 hover:opacity-75 border border-white/[0.06] bg-[#0E1118]'
         }`}
       >
-        {/* Glow halo when selected */}
-        {isSelected && (
-          <div
-            className="absolute inset-0 rounded-full blur-md opacity-40 pointer-events-none transition-opacity duration-300"
-            style={{ backgroundColor: config.color }}
-          />
-        )}
-
-        {/* Inner Metallic Bezel Ring */}
+        {/* Inner Precision Bezel Ring */}
         <div
-          className={`relative w-full h-full rounded-full flex items-center justify-center transition-all duration-300 ${
+          className={`relative w-full h-full rounded-xl flex items-center justify-center transition-all duration-200 ${
             isSelected
-              ? 'bg-gradient-to-b from-[#2A2E3D] via-[#1A1C28] to-[#12131C] border border-white/20 shadow-[inset_0_2px_4px_rgba(255,255,255,0.25),inset_0_-2px_4px_rgba(0,0,0,0.8)]'
-              : 'bg-[#151722] border border-white/5'
+              ? 'bg-[#181C28] border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]'
+              : 'bg-[#10131A] border border-transparent'
           }`}
         >
-          {/* Glass reflection crescent on top half */}
-          <div className="absolute top-1 left-2 right-2 h-4 bg-gradient-to-b from-white/20 to-transparent rounded-t-full pointer-events-none" />
-
           {/* Logo */}
-          <div className="relative z-10 transition-transform duration-200 group-hover:scale-110">
+          <div className="relative z-10 transition-transform duration-200 group-hover:scale-105">
             {renderLogo()}
           </div>
         </div>
 
         {/* Small active indicator dot */}
         {isSelected && (
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#00E676] shadow-[0_0_8px_#00E676] border border-[#0d1522]" />
+          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#00E676] border-2 border-[#0A0C10]" />
         )}
       </div>
 

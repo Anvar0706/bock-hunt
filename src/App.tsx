@@ -726,15 +726,11 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#181820] text-[#F5F7FA] relative overflow-x-hidden flex justify-center selection:bg-[#22D3EE]/30">
-      {/* Deep Layered 3D Cyber Background */}
+    <div className="min-h-screen bg-[#0A0C10] text-[#F8FAFC] relative overflow-x-hidden flex justify-center selection:bg-[#22D3EE]/20">
+      {/* Institutional Obsidian Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Top-right cyan ambient light */}
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#22D3EE]/12 rounded-full blur-[110px]" />
-        {/* Bottom-left subtle green ambient light */}
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#00E676]/8 rounded-full blur-[120px]" />
-        {/* Center dark vignette */}
-        <div className="absolute inset-0 bg-radial from-transparent via-[#181820]/40 to-[#121217]/90" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-72 bg-gradient-to-b from-[#141C2B]/25 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-radial from-transparent via-[#0A0C10]/60 to-[#07080C]" />
       </div>
 
       {/* Main Telegram Container - Optimized for mobile viewport & Telegram iframe */}
@@ -759,7 +755,7 @@ function MainApp() {
 
         {/* System Status Top Alert Pill */}
         <div className="px-4 mb-2.5">
-          <div className="w-full py-1 px-3 rounded-full bg-black/40 border border-white/5 flex items-center justify-between text-[9.5px] font-mono text-[#9CA3AF]">
+          <div className="w-full py-1 px-3 rounded-full bg-[#0E121B]/90 border border-white/[0.06] flex items-center justify-between text-[10px] font-mono-terminal text-[#94A3B8]">
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
               <span>{t('encryptedSession')}</span>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ExtractedWallet, DemoWallet } from '../types';
-import { Eye, EyeOff, Send, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export interface TargetMatchCardProps {
@@ -20,34 +20,24 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
   const { t } = useLanguage();
   const isDispatched = wallet.status === 'DISPATCHED' || parseFloat(String(wallet.balance || '0').replace(/,/g, '')) === 0;
 
-  const handleTransferClick = () => {
-    if (onInitiateTransfer) {
-      onInitiateTransfer(wallet);
-    } else if (onSimulateTransfer) {
-      onSimulateTransfer(wallet);
-    }
-  };
-
   return (
-    <div className="w-full px-4 mb-4 animate-modal-3d">
-      <div className="relative rounded-3xl p-[1.5px] bg-gradient-to-b from-[#00E676]/60 via-[#22D3EE]/40 to-transparent shadow-[0_20px_50px_-10px_rgba(0,230,118,0.25),0_0_30px_rgba(34,211,238,0.2)]">
-        {/* Glass Card Surface */}
-        <div className="glass-card-elevated rounded-3xl p-5 relative overflow-hidden bg-gradient-to-b from-[#1E2C38] via-[#161D2A] to-[#121520]">
-          {/* Ambient lighting reflections */}
-          <div className="absolute top-0 right-0 w-36 h-36 bg-[#00E676]/15 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-36 h-36 bg-[#22D3EE]/15 blur-3xl pointer-events-none" />
+    <div className="w-full px-4 mb-4 select-none animate-modal-3d">
+      <div className="rounded-2xl border border-[#00E676]/40 bg-[#121622] shadow-[0_8px_24px_-4px_rgba(0,230,118,0.15)] relative overflow-hidden">
+        {/* Top Hairline Indicator */}
+        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00E676] to-transparent pointer-events-none" />
 
+        <div className="p-4 sm:p-5 relative">
           {/* Header Badge */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#00E676]/20 border border-[#00E676]/50 flex items-center justify-center text-[#00E676] shadow-[0_0_12px_rgba(0,230,118,0.4)]">
-                {isDispatched ? <CheckCircle2 className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-[0_2px_8px_rgba(0,230,118,0.2)]">
+                <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold tracking-wider text-white">
+                <h3 className="text-xs sm:text-sm font-bold tracking-wider text-white uppercase font-mono-terminal">
                   {t('targetIdentified')}
                 </h3>
-                <span className="text-[10px] font-mono text-[#00E676] tracking-wider uppercase font-semibold">
+                <span className="text-[10px] font-mono-terminal text-[#00E676] tracking-wider uppercase font-semibold">
                   {isDispatched ? t('balanceSwept') : t('collisionVerified')}
                 </span>
               </div>
@@ -55,9 +45,9 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
 
             {/* Status Tag */}
             <span
-              className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
+              className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold uppercase tracking-wider ${
                 isDispatched
-                  ? 'bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/40'
+                  ? 'bg-white/5 text-[#94A3B8] border border-white/10'
                   : 'bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676]'
               }`}
             >
@@ -65,47 +55,47 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
             </span>
           </div>
 
-          {/* Details Grid */}
-          <div className="space-y-3 mb-5">
+          {/* Details Inset Grid */}
+          <div className="space-y-2.5 mb-4">
             {/* Network & Balance */}
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-black/30 rounded-xl p-3 border border-white/5">
-                <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-1">
+              <div className="bg-[#0A0D15] rounded-xl p-3 border border-white/[0.06]">
+                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-1">
                   {t('network')}
                 </span>
-                <span className="text-sm font-bold text-white">
+                <span className="text-xs sm:text-sm font-bold text-[#F8FAFC]">
                   {wallet.networkName}
                 </span>
               </div>
 
-              <div className="bg-black/30 rounded-xl p-3 border border-[#00E676]/20 shadow-[inset_0_0_12px_rgba(0,230,118,0.08)]">
-                <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-1">
+              <div className="bg-[#0A0D15] rounded-xl p-3 border border-[#00E676]/25">
+                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-1">
                   {t('availableBalance')}
                 </span>
-                <span className="text-sm font-bold text-[#00E676] font-mono">
+                <span className="text-xs sm:text-sm font-bold text-[#00E676] font-mono-terminal">
                   {isDispatched ? '0.00' : wallet.balance} {wallet.symbol}
                 </span>
               </div>
             </div>
 
             {/* Address */}
-            <div className="bg-black/30 rounded-xl p-3 border border-white/5">
-              <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-1">
+            <div className="bg-[#0A0D15] rounded-xl p-3 border border-white/[0.06]">
+              <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-1">
                 {t('targetAddress')}
               </span>
-              <span className="text-xs font-mono text-[#CBD5E1] break-all select-all">
+              <span className="text-xs font-mono-terminal text-[#CBD5E1] break-all select-all">
                 {wallet.address}
               </span>
             </div>
 
             {/* Extracted Private Key */}
-            <div className="bg-black/40 rounded-xl p-3 border border-[#22D3EE]/25 relative">
+            <div className="bg-[#0A0D15] rounded-xl p-3 border border-white/[0.06]">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
                     {t('extractedKey')}
                   </span>
-                  <span className="text-[9px] font-mono text-[#38E8FF] px-1 py-0.2 bg-[#22D3EE]/10 rounded">
+                  <span className="text-[9px] font-mono text-[#38E8FF] px-1.5 py-0.2 bg-[#22D3EE]/10 rounded border border-[#22D3EE]/20 font-semibold">
                     {t('encrypted')}
                   </span>
                 </div>
@@ -129,7 +119,7 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
                 </button>
               </div>
 
-              <div className="font-mono text-xs text-[#38E8FF] break-all select-all pt-1">
+              <div className="font-mono-terminal text-xs text-[#38E8FF] break-all select-all pt-1 font-semibold">
                 {revealed ? (wallet.privateKey || wallet.demoPrivateKey) : wallet.maskedPrivateKey}
               </div>
             </div>
@@ -138,17 +128,17 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
           {/* Verification Status Footer */}
           <div className="w-full">
             {isDispatched ? (
-              <div className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#00E676] uppercase select-none">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
+              <div className="w-full py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#94A3B8] uppercase select-none">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#94A3B8]" />
                 <span>{t('balanceDispatched')} (0.00 {wallet.symbol})</span>
               </div>
             ) : (
-              <div className="w-full py-2.5 px-4 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 flex items-center justify-between text-xs font-mono select-none">
+              <div className="w-full py-2.5 px-4 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 flex items-center justify-between text-xs font-mono-terminal select-none">
                 <span className="flex items-center gap-2 text-[#00E676] font-bold">
                   <CheckCircle2 className="w-4 h-4 text-[#00E676]" />
                   <span>{t('targetKeyVerified')}</span>
                 </span>
-                <span className="text-[10px] text-[#9CA3AF] uppercase font-bold px-2 py-0.5 rounded bg-black/40 border border-white/5">
+                <span className="text-[9.5px] text-[#94A3B8] uppercase font-bold px-2 py-0.5 rounded bg-black/40 border border-white/5">
                   100% UNLOCKED
                 </span>
               </div>

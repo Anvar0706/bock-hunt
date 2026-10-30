@@ -364,15 +364,17 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto terminal-scroll animate-modal-3d">
-        <div className="relative rounded-3xl p-[1.5px] bg-gradient-to-b from-[#22D3EE]/50 via-white/10 to-black/90 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95)]">
-          <div className="glass-panel-3d rounded-3xl p-5 relative overflow-hidden bg-[#141724]">
-            {/* Top highlight */}
-            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38E8FF]/80 to-transparent pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md select-none">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto terminal-scroll animate-drawer-enter sm:animate-modal-3d">
+        <div className="rounded-t-3xl sm:rounded-3xl border border-white/12 bg-[#12151F] shadow-[0_-12px_40px_rgba(0,0,0,0.9)] p-5 relative overflow-hidden">
+          {/* Top Drag Handle (Mobile Ergonomics) */}
+          <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-3.5 sm:hidden" />
 
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-white/10">
+          {/* Top Hairline Accent */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#22D3EE]/20 to-[#38E8FF]/10 border border-[#22D3EE]/40 flex items-center justify-center text-[#38E8FF] shadow-[0_0_12px_rgba(34,211,238,0.3)]">
                   <Crown className="w-4 h-4" />
@@ -808,12 +810,11 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
               </div>
             )}
 
-            <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-center mt-3">
-              <span className="text-[10px] font-mono text-[#64748B]">
+            <div className="p-2.5 rounded-xl bg-[#0B0D14] border border-white/[0.04] text-center mt-3">
+              <span className="text-[10px] font-mono-terminal text-[#64748B]">
                 SECURE INFRASTRUCTURE // REAL-TIME MEMPOOL RPC AUDIT
               </span>
             </div>
-          </div>
         </div>
       </div>
     </div>
