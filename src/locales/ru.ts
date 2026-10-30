@@ -47,11 +47,11 @@ export const ru = {
   // Network Selector
   selectNetworks: 'ВЫБЕРИТЕ СЕТИ ДЛЯ СКАНИРОВАНИЯ',
   activeNetworks: 'АКТИВНО',
-  singleChainActive: '1 АКТИВНО (1 СЕТЬ)',
-  parallelClusterPro: '3x СЕТИ (PRO)',
+  singleChainActive: '1 СЕТЬ АКТИВНА',
+  parallelClusterPro: '3x КЛАСТЕР ⚡',
   parallelActive: 'ПАРАЛЛЕЛЬНО АКТИВНО',
-  singleNetworkNotice: 'Тариф Community: 1 активная сеть. Параллельный кластерный поиск (TRC + ERC + SOL) доступен в PRO.',
-  upgradeParallelBtn: 'ОТКРЫТЬ 3 СЕТИ (PRO)',
+  singleNetworkNotice: 'Однопоточный режим. Параллельная маршрутизация 3 сетей доступна в PRO.',
+  upgradeParallelBtn: 'Кластер параллельного сканирования 3 сетей (PRO)',
 
   // Progress State Displays
   connecting: 'ПОДКЛЮЧЕНИЕ...',

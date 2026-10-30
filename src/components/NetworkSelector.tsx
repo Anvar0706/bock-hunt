@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Network } from '../types';
 import { Network3DButton } from './Network3DButton';
-import { Layers, Crown, Zap, Lock, Sparkles } from 'lucide-react';
+import { Layers, Zap, Sparkles } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface NetworkSelectorProps {
@@ -19,49 +19,49 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = React.memo(({
   disabled = false,
   activePlan = 'community',
   onOpenLicensing,
-  notice,
 }) => {
   const { t } = useLanguage();
   const networks: Network[] = ['TRON', 'ETHEREUM', 'SOLANA'];
   const isCommunity = activePlan === 'community';
 
   return (
-    <div className="w-full px-4 mb-4">
-      {/* Floating Glass Panel */}
-      <div className="glass-panel-3d rounded-2xl p-4 relative overflow-hidden">
-        {/* Subtle cyan ambient glow in the top-right corner */}
-        <div className="absolute -top-12 -right-12 w-28 h-28 bg-[#22D3EE]/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="w-full px-4 mb-4 select-none">
+      {/* Floating Precision Glass Panel */}
+      <div className="glass-panel-3d rounded-2xl p-4 relative overflow-hidden border border-white/10 bg-[#151722]/80 backdrop-blur-xl">
+        {/* Ambient Top Glow Accent */}
+        <div className="absolute -top-10 -right-10 w-28 h-28 bg-[#22D3EE]/8 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Panel Header */}
+        {/* Panel Header: Minimalist & Tactical */}
         <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2">
             <Layers className="w-3.5 h-3.5 text-[#22D3EE]" />
-            <span className="text-xs font-bold tracking-wider text-[#9CA3AF] uppercase">
+            <span className="text-[11px] font-mono font-bold tracking-wider text-[#9CA3AF] uppercase">
               {t('selectNetworks')}
             </span>
           </div>
 
+          {/* Mode Pill Indicator */}
           <div className="flex items-center gap-1.5">
             {isCommunity ? (
-              <>
-                <span className="text-[9.5px] font-mono text-[#38E8FF] bg-[#22D3EE]/10 px-2 py-0.5 rounded-full border border-[#22D3EE]/20 font-bold">
-                  1/1 {t('activeNetworks')}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9.5px] font-mono text-[#94A3B8] bg-white/[0.04] px-2.5 py-0.5 rounded-full border border-white/10 font-medium">
+                  {t('singleChainActive')}
                 </span>
                 {onOpenLicensing && (
                   <button
                     onClick={onOpenLicensing}
                     type="button"
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFB300]/15 hover:bg-[#FFB300]/25 border border-[#FFB300]/40 text-[#FFC107] text-[9.5px] font-mono font-bold transition-all active:scale-95 cursor-pointer shadow-[0_0_10px_rgba(255,179,0,0.2)]"
+                    className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-300 text-[9.5px] font-mono font-semibold transition-all active:scale-95 cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.08)]"
                     title={t('upgradeParallelBtn')}
                   >
-                    <Crown className="w-2.5 h-2.5 text-[#FFC107]" />
+                    <Sparkles className="w-2.5 h-2.5 text-amber-300" />
                     <span>{t('parallelClusterPro')}</span>
                   </button>
                 )}
-              </>
+              </div>
             ) : (
-              <span className="flex items-center gap-1 text-[9.5px] font-mono text-[#00E676] bg-[#00E676]/10 px-2 py-0.5 rounded-full border border-[#00E676]/30 font-bold">
-                <Zap className="w-2.5 h-2.5 text-[#00E676]" />
+              <span className="flex items-center gap-1.5 text-[9.5px] font-mono text-[#00E676] bg-[#00E676]/10 px-2.5 py-0.5 rounded-full border border-[#00E676]/30 font-bold shadow-[0_0_10px_rgba(0,230,118,0.15)]">
+                <Zap className="w-2.5 h-2.5 text-[#00E676] animate-pulse" />
                 <span>{selectedNetworks.length}/3 {t('parallelActive')}</span>
               </span>
             )}
@@ -79,45 +79,6 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = React.memo(({
             />
           ))}
         </div>
-
-        {/* Notice Banner if triggered */}
-        {notice && (
-          <div className="mt-2.5 p-2 rounded-xl bg-[#FFB300]/15 border border-[#FFB300]/30 flex items-center justify-between text-[10.5px] text-[#FFD54F] animate-fadeIn font-mono">
-            <div className="flex items-center gap-1.5 min-w-0 pr-1">
-              <Sparkles className="w-3.5 h-3.5 text-[#FFB300] shrink-0" />
-              <span className="truncate">{notice}</span>
-            </div>
-            {onOpenLicensing && (
-              <button
-                onClick={onOpenLicensing}
-                type="button"
-                className="ml-2 px-2 py-0.5 rounded bg-[#FFB300] text-black font-extrabold text-[9px] uppercase tracking-wider shrink-0 cursor-pointer active:scale-95"
-              >
-                PRO
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Community Single Network Notice */}
-        {isCommunity && !notice && (
-          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
-            <div className="flex items-center gap-1.5 text-[#9CA3AF] min-w-0 pr-1">
-              <Lock className="w-3 h-3 text-[#FFB300] shrink-0" />
-              <span className="truncate">{t('singleNetworkNotice')}</span>
-            </div>
-            {onOpenLicensing && (
-              <button
-                onClick={onOpenLicensing}
-                type="button"
-                className="text-[#FFC107] hover:text-white font-bold shrink-0 ml-1.5 underline decoration-[#FFB300]/50 cursor-pointer flex items-center gap-0.5"
-              >
-                <span>PRO</span>
-                <span>&rarr;</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

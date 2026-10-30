@@ -86,18 +86,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     }
   }, [isCommunityPlan]);
 
-  const [networkNotice, setNetworkNotice] = useState<string | null>(null);
-  const networkNoticeTimerRef = useRef<number | null>(null);
-
-  const showNetworkNotice = useCallback((msg: string) => {
-    if (networkNoticeTimerRef.current) {
-      clearTimeout(networkNoticeTimerRef.current);
-    }
-    setNetworkNotice(msg);
-    networkNoticeTimerRef.current = window.setTimeout(() => {
-      setNetworkNotice(null);
-    }, 4500);
-  }, []);
 
   // Scan state
   const [scanState, setScanState] = useState<ScanState>('IDLE');
@@ -183,42 +171,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     return id;
   };
 
-  // Toggle network selection (Community: strictly 1 chain; PRO/Enterprise: multi-chain parallel)
-  const handleToggleNetwork = useCallback((network: Network) => {
-    if (isScanning) return;
-
-    if (isCommunityPlan) {
-      if (selectedNetworks.includes(network)) {
-        showNetworkNotice(
-          language === 'ru'
-            ? 'Тариф Community ограничен 1 активной сетью. Для параллельного поиска по 3 сетям требуется PRO.'
-            : 'Community tier is limited to 1 active chain. Multi-network parallel clustering requires PRO.'
-        );
-        return;
-      } else {
-        setSelectedNetworks([network]);
-        showNetworkNotice(
-          language === 'ru'
-            ? `Выбрана сеть ${network}. Параллельное сканирование 3 сетей доступно в тарифе PRO.`
-            : `Active chain switched to ${network}. Parallel multi-chain scanning across all 3 networks requires PRO.`
-        );
-        return;
-      }
-    }
-
-    setSelectedNetworks((prev) => {
-      if (prev.includes(network)) {
-        return prev.length > 1 ? prev.filter((n) => n !== network) : prev;
-      } else {
-        return [...prev, network];
-      }
-    });
-  }, [isScanning, isCommunityPlan, selectedNetworks, language, showNetworkNotice]);
-
-  const handleOpenTransferModal = useCallback((wallet: ExtractedWallet) => {
-    setTransferModalWallet(wallet);
-  }, []);
-
   // Haptic audio feedback beep using singleton Web Audio API with auto-disconnect
   const playAudioBeep = useCallback((freq: number = 880, duration: number = 0.08) => {
     if (!soundEnabled) return;
@@ -259,6 +211,41 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     }
   }, [soundEnabled]);
   const playSimulatedBeep = playAudioBeep;
+
+  // Toggle network selection (Community: strictly 1 chain; PRO/Enterprise: multi-chain parallel)
+  const handleToggleNetwork = useCallback((network: Network) => {
+    if (isScanning) return;
+
+    // Telegram Haptic feedback
+    try {
+      (window as any)?.Telegram?.WebApp?.HapticFeedback?.selectionChanged?.();
+    } catch {}
+
+    if (isCommunityPlan) {
+      if (selectedNetworks.includes(network)) {
+        playAudioBeep(520, 0.04);
+        return;
+      }
+      // Seamless single-chain radio switch: instant, silent, zero alert popups
+      setSelectedNetworks([network]);
+      playAudioBeep(740, 0.05);
+      return;
+    }
+
+    // PRO / Enterprise: multi-chain parallel selection
+    playAudioBeep(640, 0.05);
+    setSelectedNetworks((prev) => {
+      if (prev.includes(network)) {
+        return prev.length > 1 ? prev.filter((n) => n !== network) : prev;
+      } else {
+        return [...prev, network];
+      }
+    });
+  }, [isScanning, isCommunityPlan, selectedNetworks, playAudioBeep]);
+
+  const handleOpenTransferModal = useCallback((wallet: ExtractedWallet) => {
+    setTransferModalWallet(wallet);
+  }, []);
 
   // Dedicated, celebratory match trigger sequence
   const triggerMatchEvent = (session: number, safeNetworks: Network[], targetRecords: number) => {
@@ -913,7 +900,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         disabled={isScanning}
         activePlan={activePlan}
         onOpenLicensing={onOpenLicensing}
-        notice={networkNotice}
       />
 
       {/* 5. Main Action CTA Buttons */}

@@ -47,11 +47,11 @@ export const en = {
   // Network Selector
   selectNetworks: 'SELECT NETWORKS TO SCAN',
   activeNetworks: 'ACTIVE',
-  singleChainActive: '1 ACTIVE (SINGLE CHAIN)',
-  parallelClusterPro: '3x PARALLEL (PRO)',
+  singleChainActive: '1 CHAIN ACTIVE',
+  parallelClusterPro: '3x CLUSTER ⚡',
   parallelActive: 'PARALLEL ACTIVE',
-  singleNetworkNotice: 'Community plan: 1 network active. Parallel 3-chain extraction (TRC + ERC + SOL) requires PRO.',
-  upgradeParallelBtn: 'UNLOCK 3x PARALLEL',
+  singleNetworkNotice: 'Single-chain mode active. Parallel 3-chain clustering available in PRO.',
+  upgradeParallelBtn: 'Multi-Chain Parallel Cluster (PRO)',
 
   // Progress State Displays
   connecting: 'CONNECTING...',
