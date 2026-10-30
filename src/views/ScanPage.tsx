@@ -95,6 +95,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const [limitAlertOpen, setLimitAlertOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const isStartingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   // Status Cards Display Text
   const [walletFoundDisplay, setWalletFoundDisplay] = useState('N/A');
@@ -175,7 +176,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const playAudioBeep = useCallback((freq: number = 880, duration: number = 0.08) => {
     if (!soundEnabled) return;
     try {
-      if (!audioCtxRef.current) {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
         const AudioContextClass =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -184,7 +185,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         }
       }
       const audioCtx = audioCtxRef.current;
-      if (!audioCtx) return;
+      if (!audioCtx || audioCtx.state === 'closed') return;
       if (audioCtx.state === 'suspended') {
         audioCtx.resume().catch(() => {});
       }
@@ -323,7 +324,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         ?.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
     } catch {}
 
-    // Add to global state so it reflects in wallet vault
+    // Add to global state so it reflects in wallet vault (App.tsx increments communityExtractsCount once here)
     try {
       if (onWalletFound) {
         onWalletFound(matchedWallet);
@@ -332,18 +333,15 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       console.error('[BlockHunt] onWalletFound error:', err);
     }
 
-    // Increment community usage count if on free tier & write synchronously
+    // Persist synchronous free tier usage count to localStorage
     try {
       if (isCommunityPlan) {
-        if (onIncrementCommunityExtracts) {
-          onIncrementCommunityExtracts();
-        }
         try {
           window.localStorage.setItem('shark_community_extracts', String(Math.max(communityExtractsCount + 1, 1)));
         } catch {}
       }
     } catch (err) {
-      console.error('[BlockHunt] onIncrementCommunityExtracts error:', err);
+      console.error('[BlockHunt] community extracts storage error:', err);
     }
 
     // Record scan in history
@@ -461,6 +459,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       isStartingRef.current = false;
       setLimitAlertOpen(true);
       playSimulatedBeep(330, 0.2);
+      return;
+    }
+
+    // Safety guard: if user switched tabs while verification was in-flight, abort cleanly
+    if (!isMountedRef.current) {
+      isStartingRef.current = false;
       return;
     }
 
@@ -853,19 +857,24 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
   // Cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       clearAllTimers();
       onScanningChange?.(false);
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        try {
-          audioCtxRef.current.close().catch(() => {});
-        } catch {}
+      if (audioCtxRef.current) {
+        if (audioCtxRef.current.state !== 'closed') {
+          try {
+            audioCtxRef.current.close().catch(() => {});
+          } catch {}
+        }
+        audioCtxRef.current = null;
       }
     };
   }, [onScanningChange]);
 
   return (
-    <div className="w-full pb-24 animate-fadeIn">
+    <div className="w-full pb-32 animate-fadeIn">
       {/* 1. Wallet Status Cards */}
       <WalletStatusCards
         walletFoundText={walletFoundDisplay}

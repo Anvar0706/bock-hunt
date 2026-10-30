@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { AdminDepositAddresses, Network, PricingSettings } from '../types';
 import {
   X,
@@ -54,6 +54,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<PlanItem | null>(null);
   const [paymentNetwork, setPaymentNetwork] = useState<Network>('TRON');
   const [copied, setCopied] = useState(false);
+  const isVerifyingRef = useRef(false);
 
   // Sync prop changes
   useEffect(() => {
@@ -238,7 +239,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
 
   // Verify transaction hash, check recipient address and amount matching strictly on-chain
   const handleVerifyPayment = async () => {
-    if (!selectedPlanForPayment) return;
+    if (isVerifyingRef.current || isVerifying || !selectedPlanForPayment) return;
     const cleanHash = txHash.trim();
 
     if (!cleanHash) {
@@ -279,6 +280,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       }
     }
 
+    isVerifyingRef.current = true;
     setVerificationError(null);
     setIsVerifying(true);
     setVerificationLogs([
@@ -304,6 +306,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
         body: JSON.stringify({
           txHash: normalizedHash,
           network: paymentNetwork,
+          plan: selectedPlanForPayment.id,
           planId: selectedPlanForPayment.id,
           billingCycle,
           lang: language,
@@ -359,6 +362,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       ]);
     } finally {
       clearTimeout(clientTimeout);
+      isVerifyingRef.current = false;
       setIsVerifying(false);
     }
   };

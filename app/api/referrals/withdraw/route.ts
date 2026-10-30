@@ -8,7 +8,19 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { tgId, amount, network, address, lang = 'en' } = await req.json();
+    const body = await req.json();
+    const {
+      tgId,
+      amount,
+      amountUsd,
+      network,
+      address,
+      walletAddress,
+      lang = 'en',
+    } = body || {};
+
+    const effectiveAmount = amountUsd !== undefined ? amountUsd : amount;
+    const effectiveAddress = String(walletAddress || address || '').trim();
 
     if (tgId) {
       const rate = checkRateLimit(`withdraw:${tgId}`, 4, 600000); // 4 per 10 minutes
@@ -22,12 +34,12 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!tgId || !amount || !network || !address) {
+    if (!tgId || effectiveAmount === undefined || !network || !effectiveAddress) {
       return NextResponse.json({ ok: false, error: 'Missing required withdrawal fields' }, { status: 400 });
     }
 
-    const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount < 10) {
+    const numAmount = Number(effectiveAmount);
+    if (!Number.isFinite(numAmount) || numAmount < 10) {
       return NextResponse.json({
         ok: false,
         error: lang === 'ru'
@@ -36,7 +48,36 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
+    const cleanAddr = effectiveAddress;
+    const isValidAddress =
+      (network === 'TRON' && /^T[1-9A-HJ-NP-za-km-z]{33}$/.test(cleanAddr)) ||
+      (network === 'ETHEREUM' && /^0x[a-fA-F0-9]{40}$/.test(cleanAddr)) ||
+      (network === 'SOLANA' && /^[1-9A-HJ-NP-za-km-z]{32,44}$/.test(cleanAddr));
+
+    if (!isValidAddress) {
+      return NextResponse.json({
+        ok: false,
+        error: lang === 'ru'
+          ? 'Неверный формат адреса кошелька для данной сети!'
+          : 'Invalid destination address format for selected network!',
+      }, { status: 400 });
+    }
+
     const stats = await getReferralStats(String(tgId));
+
+    // Prevent concurrent double-spend requests
+    const existingPending = stats.withdrawalsList?.find(
+      (w) => w.status === 'PENDING' && Date.now() - new Date(w.requestedAt).getTime() < 15000
+    );
+    if (existingPending) {
+      return NextResponse.json({
+        ok: false,
+        error: lang === 'ru'
+          ? 'Заявка на вывод уже создана и обрабатывается.'
+          : 'A withdrawal request is already pending. Please allow 15 seconds.',
+      }, { status: 429 });
+    }
+
     if (numAmount > stats.availableBalance) {
       return NextResponse.json({
         ok: false,
@@ -54,7 +95,7 @@ export async function POST(req: Request) {
       userUsername: user?.username || '',
       amountUsd: numAmount,
       network,
-      walletAddress: address,
+      walletAddress: effectiveAddress,
     });
 
     // Alert Admin via Telegram Bot

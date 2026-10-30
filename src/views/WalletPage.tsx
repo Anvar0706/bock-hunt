@@ -57,7 +57,7 @@ export const WalletPage: React.FC<WalletPageProps> = ({
   };
 
   return (
-    <div className="w-full px-4 pb-24 animate-fadeIn select-none">
+    <div className="w-full px-4 pb-32 animate-fadeIn select-none">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 pt-1">
         <div className="flex items-center gap-2.5">

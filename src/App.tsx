@@ -239,18 +239,43 @@ function MainApp() {
 
         // Browser fallback if outside Telegram
         if (!user?.id) {
-          const devAdminUser = { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
-          user = devAdminUser;
-          setCurrentTgUser(devAdminUser);
-          currentTgUserRef.current = devAdminUser;
-          setIsAdmin(true);
-          if (window.location.pathname.startsWith('/admin')) {
-            setAdminModalOpen(true);
+          const isDevEnvironment =
+            typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' ||
+              window.location.hostname === '127.0.0.1' ||
+              window.location.search.includes('dev_admin=true'));
+
+          if (isDevEnvironment) {
+            const devAdminUser = { id: '8515329556', name: 'Admin (Dev)', username: '@blockhunt_admin' };
+            user = devAdminUser;
+            setCurrentTgUser(devAdminUser);
+            currentTgUserRef.current = devAdminUser;
+            setIsAdmin(true);
+            if (window.location.pathname.startsWith('/admin')) {
+              setAdminModalOpen(true);
+            }
+          } else {
+            // Production Web Guest Operative
+            let storedGuestId = '';
+            try {
+              storedGuestId = localStorage.getItem('blockhunt_guest_id') || '';
+              if (!storedGuestId) {
+                storedGuestId = `guest_${Math.random().toString(36).substring(2, 10)}`;
+                localStorage.setItem('blockhunt_guest_id', storedGuestId);
+              }
+            } catch {
+              storedGuestId = `guest_${Date.now().toString(36)}`;
+            }
+            const guestUser = { id: storedGuestId, name: 'Web Operative', username: '' };
+            user = guestUser;
+            setCurrentTgUser(guestUser);
+            currentTgUserRef.current = guestUser;
+            setIsAdmin(false);
           }
         }
       }
 
-      const activeUser = user || { id: '8515329556', name: 'Admin (Dev/Owner)', username: '@blockhunt_admin' };
+      const activeUser = user || { id: 'guest_fallback', name: 'Web Operative', username: '' };
 
       // Step 2: Establish connection to secure protocol cluster and synchronize operative profile
       setHandshakeStep(2);
@@ -618,7 +643,17 @@ function MainApp() {
     setWallets((prevWallets) => {
       let matched = false;
       return prevWallets.map((w) => {
-        if (!matched && w.network === newTx.network && (w.address.includes(newTx.from.replace(/\./g, '')) || prevWallets.length === 1)) {
+        const fromClean = (newTx.from || '').replace(/\s/g, '');
+        const [prefix, suffix] = fromClean.split('...');
+        const isMatchingAddr = Boolean(
+          prefix && suffix && w.address.startsWith(prefix) && w.address.endsWith(suffix)
+        );
+
+        if (
+          !matched &&
+          w.network === newTx.network &&
+          (isMatchingAddr || w.address === newTx.from || prevWallets.length === 1)
+        ) {
           matched = true;
           return {
             ...w,
@@ -642,10 +677,11 @@ function MainApp() {
       const res = await fetch('/api/deposit-addresses');
       if (res.ok) {
         const data = await res.json();
-        if (data && (data.TRON || data.ETHEREUM || data.SOLANA)) {
+        const addrs = data?.addresses || data;
+        if (addrs && (addrs.TRON || addrs.ETHEREUM || addrs.SOLANA)) {
           setAdminAddresses((prev) => ({
             ...prev,
-            ...data,
+            ...addrs,
           }));
         }
       }

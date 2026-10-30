@@ -17,7 +17,7 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
   const displayedScans = React.useMemo(() => scans.slice(0, visibleCount), [scans, visibleCount]);
 
   return (
-    <div className="w-full px-4 pb-24 animate-fadeIn select-none">
+    <div className="w-full px-4 pb-32 animate-fadeIn select-none">
       {/* Page Title & Controls */}
       <div className="flex items-center justify-between mb-4 pt-1">
         <div className="flex items-center gap-2.5">

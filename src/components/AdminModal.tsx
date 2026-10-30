@@ -512,10 +512,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
       <div className="relative w-full max-w-lg max-h-[92vh] flex flex-col animate-modal-3d">
-        <div className="relative rounded-3xl p-[1.5px] bg-gradient-to-b from-[#38E8FF]/60 via-white/10 to-black/90 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_35px_rgba(34,211,238,0.2)] flex flex-col overflow-hidden">
-          <div className="glass-panel-3d rounded-3xl p-5 relative overflow-hidden bg-[#141724] flex flex-col max-h-[90vh]">
-            {/* Top highlight */}
-            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38E8FF]/80 to-transparent pointer-events-none" />
+        <div className="rounded-3xl border border-white/12 bg-[#12151F] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95)] p-5 relative overflow-hidden flex flex-col max-h-[90vh]">
+          {/* Top hairline highlight */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#38E8FF]/30 to-transparent pointer-events-none" />
 
             {/* Header */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 shrink-0">
@@ -2189,6 +2188,5 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };

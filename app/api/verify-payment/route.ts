@@ -19,7 +19,6 @@ export async function POST(req: Request) {
     const {
       txHash,
       network = 'TRON',
-      plan = 'pro',
       billingCycle = 'weekly',
       cycle = 'weekly',
       lang = 'en',
@@ -27,6 +26,7 @@ export async function POST(req: Request) {
       source = 'WEBAPP',
     } = body || {};
 
+    const plan = body?.plan || body?.planId || 'pro';
     const effectiveCycle = billingCycle || cycle || 'weekly';
 
     if (!txHash) {

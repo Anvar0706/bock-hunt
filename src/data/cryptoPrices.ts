@@ -24,11 +24,11 @@ export async function fetchLiveCryptoPrices(): Promise<CryptoPrices> {
     return cachedPrices;
   }
 
-  // Attempt 1: Local Backend Oracle (/api/crypto-prices) - fastest & no CORS/rate limits
+  // Attempt 1: Local Backend Oracle (/api/prices) - fastest & no CORS/rate limits
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-    const res = await fetch('/api/crypto-prices', { signal: controller.signal });
+    const res = await fetch('/api/prices', { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
