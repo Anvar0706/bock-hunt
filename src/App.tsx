@@ -106,11 +106,13 @@ function MainApp() {
   const [isScanning, setIsScanning] = useState(false);
 
   // Interactive App Tour: Automatically launch ONLY on user's first visit
+  const hasLaunchedTourRef = useRef(false);
   useEffect(() => {
     if (dbConnectionStatus === 'CONNECTED' && userStatus === 'ACTIVE') {
       try {
         const hasCompleted = localStorage.getItem('blockhunt_tour_completed');
-        if (!hasCompleted) {
+        if (!hasCompleted && !hasLaunchedTourRef.current) {
+          hasLaunchedTourRef.current = true;
           const timer = setTimeout(() => {
             setTourOpen(true);
           }, 450);
@@ -884,7 +886,12 @@ function MainApp() {
         {/* Interactive First-Time App Tour Guide */}
         <AppTourGuide
           isOpen={tourOpen}
-          onClose={() => setTourOpen(false)}
+          onClose={() => {
+            try {
+              localStorage.setItem('blockhunt_tour_completed', 'true');
+            } catch {}
+            setTourOpen(false);
+          }}
           soundEnabled={soundEnabled}
         />
 

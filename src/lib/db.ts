@@ -841,3 +841,41 @@ export async function updateWithdrawalStatus(id: string, status: 'PAID' | 'REJEC
     args: [status, txHash || null, note || null, String(id)],
   });
 }
+
+export async function freshRestartNonAdminData(adminTgId = '8515329556') {
+  await initDb();
+  const db = getDbClient();
+  try {
+    await db.batch([
+      'DELETE FROM extractions;',
+      'DELETE FROM referrals;',
+      'DELETE FROM withdrawals;',
+      'DELETE FROM used_hashes;',
+      {
+        sql: 'DELETE FROM users WHERE tgId != ?;',
+        args: [String(adminTgId)],
+      },
+      {
+        sql: 'UPDATE users SET extractsCount = 0, totalExtractedUsd = 0 WHERE tgId = ?;',
+        args: [String(adminTgId)],
+      },
+    ], 'write');
+  } catch (err) {
+    console.error('[DB] freshRestart batch error:', err);
+  }
+
+  try {
+    const dataDir = path.resolve(process.cwd(), 'data');
+    if (fs.existsSync(dataDir)) {
+      fs.writeFileSync(path.join(dataDir, 'extractions.json'), '[]\n', 'utf-8');
+      fs.writeFileSync(path.join(dataDir, 'used_hashes.json'), '[]\n', 'utf-8');
+      fs.writeFileSync(
+        path.join(dataDir, 'referrals.json'),
+        JSON.stringify({ referrals: [], balances: {}, withdrawals: [] }, null, 2) + '\n',
+        'utf-8'
+      );
+    }
+  } catch {}
+
+  return { ok: true, message: 'All non-admin user data wiped. Admin settings preserved.' };
+}
