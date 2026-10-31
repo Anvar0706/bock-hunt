@@ -519,52 +519,106 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
     ]);
 
-    // Dynamic High-Tech Timeline with Realistic Latency & Server Load Variations
-    // Network-scaled duration: 1 network (3.3x-4.8x base), 2 networks (1.85x-2.35x base), 3 networks (baseline)
-    const networkCount = Math.max(1, Math.min(3, safeNetworks.length));
+    // Master Scan Timeline Engine
+    // Community tier: Extended Cryptographic Search (~125s - 175s, 2-3 mins) with multiple public node congestion waves
+    // PRO / Enterprise: High-priority dedicated clusters (~20s - 45s, zero queues)
+    let T_MATCH: number;
+    let targetRecords: number;
 
-    // Base duration for all 3 networks (~21s - 42s with wide realistic spread)
-    const baseMatch = Math.floor(21000 + Math.random() * 21000);
-
-    let durationMultiplier = 1.0;
-    let recordsMultiplier = 1.0;
-
-    if (networkCount === 1) {
-      // 1 network: finding time takes 3-4-5x longer (~75s - 195s)
-      durationMultiplier = 3.3 + Math.random() * 1.5;
-      recordsMultiplier = 3.2 + Math.random() * 1.2;
-    } else if (networkCount === 2) {
-      // 2 networks: ~1.85x - 2.35x (~42s - 95s)
-      durationMultiplier = 1.85 + Math.random() * 0.5;
-      recordsMultiplier = 1.8 + Math.random() * 0.5;
+    interface CongestionWave {
+      id: number;
+      start: number;
+      end: number;
+      step1Logged: boolean;
+      step2Logged: boolean;
+      step3Logged: boolean;
+      resolved: boolean;
+      startLog: string;
+      step2Log: string;
+      step3Log: string;
+      resolvedLog: string;
+      subStatus: string;
     }
 
-    const T_MATCH = Math.floor(baseMatch * durationMultiplier);
-    const targetRecords = Math.floor((220000 + Math.random() * 180000) * recordsMultiplier);
+    const congestionWaves: CongestionWave[] = [];
+
+    if (isCommunityPlan) {
+      // Community Plan: Extended Cryptographic Search (~125s - 175s, 2-3 minutes)
+      T_MATCH = Math.floor(125000 + Math.random() * 50000);
+      targetRecords = Math.floor(650000 + Math.random() * 300000);
+
+      // WAVE 1: Early Public Node Saturation & Queue Wait (~18s - 34s into scan)
+      const w1Start = Math.floor(18000 + Math.random() * 4000);
+      const w1Duration = Math.floor(13000 + Math.random() * 4000);
+      congestionWaves.push({
+        id: 1,
+        start: w1Start,
+        end: w1Start + w1Duration,
+        step1Logged: false,
+        step2Logged: false,
+        step3Logged: false,
+        resolved: false,
+        startLog: '> [SHARED POOL SATURATED] Public community nodes at 99.4% capacity. Priority lanes allocated to PRO tiers.',
+        step2Log: '> [QUEUE POSITION #18] Free tier slot pending. Re-routing through low-priority mempool relay...',
+        step3Log: '> [HANDSHAKE RETRY] Awaiting response from fallback node [BlockHunt-Public-02:443]...',
+        resolvedLog: '> [FAILOVER RESTORED] Public node allocated. Resuming extraction stream...',
+        subStatus: 'QUEUE WAIT #18',
+      });
+
+      // WAVE 2: Mid-Scan RPC Rate Throttling (~55s - 75s into scan)
+      const w2Start = Math.floor(T_MATCH * 0.45 + Math.random() * 4000);
+      const w2Duration = Math.floor(15000 + Math.random() * 5000);
+      congestionWaves.push({
+        id: 2,
+        start: w2Start,
+        end: w2Start + w2Duration,
+        step1Logged: false,
+        step2Logged: false,
+        step3Logged: false,
+        resolved: false,
+        startLog: '> [RPC RATE LIMIT] Public node 10 req/s threshold exceeded. Cooldown active (public tier throttling).',
+        step2Log: '> [BANDWIDTH RESTRICTED] Priority lanes reserved for PRO/Enterprise compute clusters.',
+        step3Log: '> [MEMPOOL RESYNC] Synchronizing SECP256K1 memory stream with secondary validator...',
+        resolvedLog: '> [CHANNEL RESTORED] Public lane restored. Resuming key permutations...',
+        subStatus: 'THROTTLED // RETRY',
+      });
+
+      // WAVE 3: Late Pre-Collision Mempool Jam (~75% into scan)
+      const w3Start = Math.floor(T_MATCH * 0.74 + Math.random() * 3000);
+      const w3Duration = Math.floor(13000 + Math.random() * 4000);
+      const safeW3End = Math.min(T_MATCH - 3600, w3Start + w3Duration);
+      if (safeW3End > w3Start + 5000) {
+        congestionWaves.push({
+          id: 3,
+          start: w3Start,
+          end: safeW3End,
+          step1Logged: false,
+          step2Logged: false,
+          step3Logged: false,
+          resolved: false,
+          startLog: '> [CLUSTER CONGESTION] Heavy block mempool congestion on public relay. Queue delay active.',
+          step2Log: '> [HEALTH CHECK] Validating elliptic curve pipeline integrity on backup route...',
+          step3Log: '> [STANDBY RECONNECT] Re-establishing encrypted handshake on node [BlockHunt-Public-04]...',
+          resolvedLog: `> [PIPELINE RESTORED] Resuming single-chain search on [${safeNetworks.join(', ')}]...`,
+          subStatus: 'BUFFERING // BUSY',
+        });
+      }
+    } else {
+      // PRO / Enterprise Plan: Blazingly Fast Dedicated VIP Clusters (~20s - 45s)
+      const networkCount = Math.max(1, Math.min(3, safeNetworks.length));
+      if (networkCount === 3) {
+        T_MATCH = Math.floor(22000 + Math.random() * 16000);
+      } else if (networkCount === 2) {
+        T_MATCH = Math.floor(34000 + Math.random() * 18000);
+      } else {
+        T_MATCH = Math.floor(46000 + Math.random() * 18000);
+      }
+      targetRecords = Math.floor(240000 + Math.random() * 160000);
+    }
 
     const T_INIT = 500;    // 0.5s -> Cluster socket ready, allocate 512MB heap
     const T_SCAN = 1200;   // 1.2s -> Commencing live multi-core extraction stream!
-
-    // Realistic server congestion / failover event (75% occurrence, dynamic timing)
-    // Reconnecting duration extended to 6.2s - 12.8s as requested
-    const hasCongestion = Math.random() < 0.75;
-    const congestionDuration = Math.floor(6200 + Math.random() * 6600); // 6.2s - 12.8s
-
-    let T_BUSY_START = hasCongestion ? Math.floor(T_MATCH * 0.28 + Math.random() * 2400) : -1;
-    let T_BUSY_END = hasCongestion ? T_BUSY_START + congestionDuration : -1;
-
-    // Safety check: ensure congestion finishes before the final analysis phase
-    if (hasCongestion && T_BUSY_END > T_MATCH - 3200) {
-      T_BUSY_START = Math.max(2000, T_MATCH - 3200 - congestionDuration);
-      T_BUSY_END = T_BUSY_START + congestionDuration;
-    }
-
-    let isBusyTriggered = false;
-    let isBusyResolved = false;
-    let busyLogStep = 0;
-
-    // Approaching collision analysis phase (last 2.6s before match)
-    const T_ANALYSIS = T_MATCH - 2600;
+    const T_ANALYSIS = T_MATCH - 2800; // Approaching collision analysis phase (last 2.8s before match)
     let isAnalysisTriggered = false;
 
     const startTime = performance.now();
@@ -638,21 +692,22 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // SUB-PHASE 2A: CONGESTION / BUSY ILLUSION (6.2s - 12.8s duration)
-          if (hasCongestion && elapsed >= T_BUSY_START && elapsed < T_BUSY_END) {
-            const busyElapsed = elapsed - T_BUSY_START;
+          // Check if currently inside any Congestion Wave (e.g. Free Tier Multi-Wave Congestion)
+          const activeWave = congestionWaves.find((w) => elapsed >= w.start && elapsed < w.end);
 
-            if (!isBusyTriggered) {
-              isBusyTriggered = true;
-              busyLogStep = 1;
+          if (activeWave) {
+            const waveElapsed = elapsed - activeWave.start;
+
+            if (!activeWave.step1Logged) {
+              activeWave.step1Logged = true;
               setWalletFoundDisplay(t('allServersBusy'));
               setPrivateKeyDisplay(t('reconnecting'));
               playSimulatedBeep(440, 0.15);
               setLogs((prev) => [
                 ...prev.slice(-14),
                 {
-                  id: `busy-${Date.now()}`,
-                  text: '> [CLUSTER CONGESTION] Primary mempool node saturated (98.6% heap). Initiating failover protocol...',
+                  id: `busy-w${activeWave.id}-${Date.now()}`,
+                  text: activeWave.startLog,
                   statusText: '[ALL SERVERS BUSY]',
                   statusType: 'warning',
                   timestamp: new Date().toLocaleTimeString(),
@@ -660,14 +715,30 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ]);
             }
 
-            // Step 2 log (after ~2.8s into congestion)
-            if (busyLogStep === 1 && busyElapsed >= 2800) {
-              busyLogStep = 2;
+            // Step 2 log (after ~3.5s into congestion)
+            if (!activeWave.step2Logged && waveElapsed >= 3500) {
+              activeWave.step2Logged = true;
+              setPrivateKeyDisplay(activeWave.subStatus);
               setLogs((prev) => [
                 ...prev.slice(-14),
                 {
-                  id: `busy-retry-${Date.now()}`,
-                  text: '> [HANDSHAKE RETRY] Establishing fallback socket with node [BlockHunt-Node-02:443]...',
+                  id: `busy-w${activeWave.id}-step2-${Date.now()}`,
+                  text: activeWave.step2Log,
+                  statusText: '[QUEUE WAIT]',
+                  statusType: 'warning',
+                  timestamp: new Date().toLocaleTimeString(),
+                },
+              ]);
+            }
+
+            // Step 3 log (after ~7.5s into congestion)
+            if (!activeWave.step3Logged && waveElapsed >= 7500) {
+              activeWave.step3Logged = true;
+              setLogs((prev) => [
+                ...prev.slice(-14),
+                {
+                  id: `busy-w${activeWave.id}-step3-${Date.now()}`,
+                  text: activeWave.step3Log,
                   statusText: '[RE-ESTABLISHING]',
                   statusType: 'warning',
                   timestamp: new Date().toLocaleTimeString(),
@@ -675,58 +746,30 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ]);
             }
 
-            // Step 3 log (after ~5.8s into congestion)
-            if (busyLogStep === 2 && busyElapsed >= 5800) {
-              busyLogStep = 3;
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `busy-resync-${Date.now()}`,
-                  text: '> [KEYSTORE RESYNC] Re-routing SECP256K1 memory stream through resilient gateway...',
-                  statusText: '[SYNCHRONIZING]',
-                  statusType: 'warning',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
-
-            // Step 4 log (after ~8.8s into congestion, if duration allows)
-            if (busyLogStep === 3 && busyElapsed >= 8800) {
-              busyLogStep = 4;
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `busy-verify-${Date.now()}`,
-                  text: '> [HEALTH CHECK] Validating elliptic curve pipeline integrity on backup route...',
-                  statusText: '[VERIFYING]',
-                  statusType: 'warning',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
-
-            // During congestion, progress keys very slowly (simulating stalled network pipeline)
-            setRecordsScanned((prev) => prev + Math.floor(Math.random() * 8 + 2));
+            // During congestion, progress keys very slowly (simulating authentic queued pipeline)
+            setRecordsScanned((prev) => prev + Math.floor(Math.random() * 3 + 1));
             return;
           }
 
-          // SUB-PHASE 2B: CONGESTION RESOLVED / FAILOVER RESTORED
-          if (hasCongestion && isBusyTriggered && !isBusyResolved && elapsed >= T_BUSY_END) {
-            isBusyResolved = true;
-            playSimulatedBeep(880, 0.12);
-            setLogs((prev) => [
-              ...prev.slice(-14),
-              {
-                id: `restored-${Date.now()}`,
-                text: '> [FAILOVER CONNECTED] Secondary cluster synchronized [BlockHunt-US-02]. Resuming extraction stream at 100% bandwidth!',
-                statusText: '[SESSION RESTORED]',
-                statusType: 'success',
-                timestamp: new Date().toLocaleTimeString(),
-              },
-            ]);
+          // Check if any wave just resolved
+          for (const wave of congestionWaves) {
+            if (elapsed >= wave.end && wave.step1Logged && !wave.resolved) {
+              wave.resolved = true;
+              playSimulatedBeep(880, 0.12);
+              setLogs((prev) => [
+                ...prev.slice(-14),
+                {
+                  id: `restored-w${wave.id}-${Date.now()}`,
+                  text: wave.resolvedLog,
+                  statusText: '[SESSION RESTORED]',
+                  statusType: 'success',
+                  timestamp: new Date().toLocaleTimeString(),
+                },
+              ]);
+            }
           }
 
-          // SUB-PHASE 2C: APPROACHING MATCH ANALYSIS (FINAL 2.6s)
+          // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 2.8s)
           if (elapsed >= T_ANALYSIS && !isAnalysisTriggered) {
             isAnalysisTriggered = true;
             setWalletFoundDisplay(t('analyzing'));
@@ -758,13 +801,11 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           setRecordsScanned(dynamicRecords);
 
           // Live rotate candidate address and key from pre-allocated pool (zero string allocations)
-          if (!hasCongestion || elapsed < T_BUSY_START || elapsed >= T_BUSY_END) {
-            if (!isAnalysisTriggered) {
-              const cand = CANDIDATE_POOL[candidateIdx % CANDIDATE_POOL.length];
-              candidateIdx++;
-              setWalletFoundDisplay(cand.addr);
-              setPrivateKeyDisplay(cand.key);
-            }
+          if (!isAnalysisTriggered) {
+            const cand = CANDIDATE_POOL[candidateIdx % CANDIDATE_POOL.length];
+            candidateIdx++;
+            setWalletFoundDisplay(cand.addr);
+            setPrivateKeyDisplay(cand.key);
           }
 
           // Subtle click sound (every ~1.2s)

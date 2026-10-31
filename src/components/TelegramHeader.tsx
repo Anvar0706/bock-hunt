@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoreVertical, Cpu, Terminal, Volume2, VolumeX, ShieldCheck, Globe, Zap } from 'lucide-react';
+import { MoreVertical, Cpu, Terminal, Volume2, VolumeX, ShieldCheck, Globe, Zap, Compass } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface TelegramHeaderProps {
@@ -7,6 +7,7 @@ interface TelegramHeaderProps {
   onOpenInfo: () => void;
   onOpenLicensing: () => void;
   onOpenAdmin: () => void;
+  onOpenTour?: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   activePlan: string;
@@ -17,6 +18,7 @@ export const TelegramHeader: React.FC<TelegramHeaderProps> = ({
   onOpenInfo,
   onOpenLicensing,
   onOpenAdmin,
+  onOpenTour,
   soundEnabled,
   onToggleSound,
   activePlan,
@@ -129,6 +131,19 @@ export const TelegramHeader: React.FC<TelegramHeaderProps> = ({
                     <Cpu className="w-4 h-4 text-[#94A3B8]" />
                     <span>{t('menuArchitecture')}</span>
                   </button>
+
+                  {onOpenTour && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onOpenTour();
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-xs text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                    >
+                      <Compass className="w-4 h-4 text-[#22D3EE]" />
+                      <span>{t('tourGuideMenu')}</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {

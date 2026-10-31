@@ -18,6 +18,7 @@ import { LicensingModal } from './components/LicensingModal';
 import { AdminModal } from './components/AdminModal';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ProtocolGatekeeper } from './components/ProtocolGatekeeper';
+import { AppTourGuide } from './components/AppTourGuide';
 import { ScanPage } from './views/ScanPage';
 import { ActivityPage } from './views/ActivityPage';
 import { WalletPage } from './views/WalletPage';
@@ -41,6 +42,7 @@ function MainApp() {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [licensingModalOpen, setLicensingModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useLocalStorage<boolean>('shark_sound', true);
   const [activePlan, setActivePlan] = useLocalStorage<string>('shark_active_plan', 'community');
   const [communityExtractsCount, setCommunityExtractsCount] = useLocalStorage<number>('shark_community_extracts', 0);
@@ -111,6 +113,21 @@ function MainApp() {
 
   // Active scan tracking (to disable activity and wallet navigation while scanning)
   const [isScanning, setIsScanning] = useState(false);
+
+  // Interactive App Tour: Automatically launch ONLY on user's first visit
+  useEffect(() => {
+    if (dbConnectionStatus === 'CONNECTED' && userStatus === 'ACTIVE') {
+      try {
+        const hasCompleted = localStorage.getItem('blockhunt_tour_completed');
+        if (!hasCompleted) {
+          const timer = setTimeout(() => {
+            setTourOpen(true);
+          }, 450);
+          return () => clearTimeout(timer);
+        }
+      } catch {}
+    }
+  }, [dbConnectionStatus, userStatus]);
 
   // Stable tracking refs to eliminate infinite render loops and concurrent races
   const isHandshakingRef = useRef(false);
@@ -783,6 +800,7 @@ function MainApp() {
             fetchDepositAddresses();
             setAdminModalOpen(true);
           }}
+          onOpenTour={() => setTourOpen(true)}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled((prev) => !prev)}
           activePlan={activePlan}
@@ -862,6 +880,13 @@ function MainApp() {
         <ProtocolArchitectureModal
           isOpen={infoModalOpen}
           onClose={() => setInfoModalOpen(false)}
+        />
+
+        {/* Interactive First-Time App Tour Guide */}
+        <AppTourGuide
+          isOpen={tourOpen}
+          onClose={() => setTourOpen(false)}
+          soundEnabled={soundEnabled}
         />
 
         {/* Software Licensing & Compute Tiers Modal */}
