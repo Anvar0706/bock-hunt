@@ -138,16 +138,16 @@ export function generateRandomScanLog(networks: Network[]): TerminalLog {
   const tag = getNetworkTag(chosenNetwork);
 
   const outcomes: Array<{ text: string; type: 'nokey' | 'empty' | 'failed' | 'system' }> = [
-    { text: '[NO KEY MATCH]', type: 'nokey' },
-    { text: '[EMPTY BALANCE]', type: 'empty' },
-    { text: '[COLLISION NEGATIVE]', type: 'failed' },
-    { text: '[NO KEY MATCH]', type: 'nokey' },
-    { text: '[ENTROPY DIVERGED]', type: 'failed' },
-    { text: '[ZERO BALANCE DORMANT]', type: 'empty' },
-    { text: '[NONCE MISMATCH]', type: 'failed' },
-    { text: '[BIP44 PATH RESOLVED]', type: 'system' },
-    { text: '[UNSPENT OUTPUT NULL]', type: 'empty' },
-    { text: '[SECP256K1 CHECK OK]', type: 'system' },
+    { text: '[NO KEY]', type: 'nokey' },
+    { text: '[EMPTY BAL]', type: 'empty' },
+    { text: '[MISMATCH]', type: 'failed' },
+    { text: '[NO KEY]', type: 'nokey' },
+    { text: '[DIVERGED]', type: 'failed' },
+    { text: '[DORMANT]', type: 'empty' },
+    { text: '[MISMATCH]', type: 'failed' },
+    { text: '[BIP44 OK]', type: 'system' },
+    { text: '[NULL BAL]', type: 'empty' },
+    { text: '[SECP OK]', type: 'system' },
   ];
 
   const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
