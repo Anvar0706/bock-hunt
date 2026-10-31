@@ -800,7 +800,10 @@ function MainApp() {
             fetchDepositAddresses();
             setAdminModalOpen(true);
           }}
-          onOpenTour={() => setTourOpen(true)}
+          onOpenTour={() => {
+            setCurrentTab('scan');
+            setTourOpen(true);
+          }}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled((prev) => !prev)}
           activePlan={activePlan}

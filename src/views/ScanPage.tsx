@@ -929,21 +929,25 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   return (
     <div className="w-full pb-32 animate-fadeIn">
       {/* 1. Wallet Status Cards */}
-      <WalletStatusCards
-        walletFoundText={walletFoundDisplay}
-        privateKeyText={privateKeyDisplay}
-        isMatched={Boolean(foundMatch)}
-        isScanning={isScanning}
-      />
+      <div id="tour-wallet-cards" className="w-full">
+        <WalletStatusCards
+          walletFoundText={walletFoundDisplay}
+          privateKeyText={privateKeyDisplay}
+          isMatched={Boolean(foundMatch)}
+          isScanning={isScanning}
+        />
+      </div>
 
       {/* 2. Hero Terminal Console */}
-      <TerminalConsole
-        logs={logs}
-        scanState={scanState}
-        recordsScanned={recordsScanned}
-        matchedWallet={foundMatch}
-        onTransfer={handleOpenTransferModal}
-      />
+      <div id="tour-terminal-console" className="w-full">
+        <TerminalConsole
+          logs={logs}
+          scanState={scanState}
+          recordsScanned={recordsScanned}
+          matchedWallet={foundMatch}
+          onTransfer={handleOpenTransferModal}
+        />
+      </div>
 
       {/* 3. Target Match Card - Renders smoothly directly beneath Terminal Console */}
       {foundMatch && (
@@ -956,16 +960,18 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       )}
 
       {/* 4. Network Selector */}
-      <NetworkSelector
-        selectedNetworks={selectedNetworks}
-        onToggleNetwork={handleToggleNetwork}
-        disabled={isScanning}
-        activePlan={activePlan}
-        onOpenLicensing={onOpenLicensing}
-      />
+      <div id="tour-network-selector" className="w-full">
+        <NetworkSelector
+          selectedNetworks={selectedNetworks}
+          onToggleNetwork={handleToggleNetwork}
+          disabled={isScanning}
+          activePlan={activePlan}
+          onOpenLicensing={onOpenLicensing}
+        />
+      </div>
 
       {/* 5. Main Action CTA Buttons */}
-      <div className="w-full px-4 mb-4 space-y-2.5">
+      <div id="tour-scan-cta" className="w-full px-4 mb-4 space-y-2.5">
         {isScanning ? (
           <CancelButton onClick={handleCancelScan} />
         ) : foundMatch ? (
