@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { upsertUser, getUser } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`user_sync:${ip}`, 40, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json({ ok: false, error: 'Too many sync requests. Please wait.' }, { status: 429 });
+    }
+
     const body = await req.json();
     const { tgId, name, username, lang } = body || {};
 
@@ -12,11 +19,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
     }
 
+    // Input sanitization & bounds check
+    const cleanTgId = String(tgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    const cleanName = String(name || 'User').slice(0, 64);
+    const cleanUsername = String(username || '').slice(0, 64);
+    const cleanLang = lang === 'ru' ? 'ru' : 'en';
+
     const user = await upsertUser({
-      tgId: String(tgId),
-      name: name || 'User',
-      username: username || '',
-      lang: lang || 'en',
+      tgId: cleanTgId,
+      name: cleanName,
+      username: cleanUsername,
+      lang: cleanLang,
     });
 
     return NextResponse.json({ ok: true, user });
@@ -27,11 +40,23 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const tgId = url.searchParams.get('tgId');
-  if (!tgId) {
-    return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
+  try {
+    const ip = getClientIp(req);
+    const rate = checkRateLimit(`user_get:${ip}`, 40, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json({ ok: false, error: 'Too many requests. Please wait.' }, { status: 429 });
+    }
+
+    const url = new URL(req.url);
+    const tgId = url.searchParams.get('tgId');
+    if (!tgId) {
+      return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
+    }
+
+    const cleanTgId = String(tgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    const user = await getUser(cleanTgId);
+    return NextResponse.json({ ok: true, user });
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
   }
-  const user = await getUser(tgId);
-  return NextResponse.json({ ok: true, user });
 }

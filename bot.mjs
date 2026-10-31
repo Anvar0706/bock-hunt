@@ -74,7 +74,7 @@ function safeWriteJson(filePath, data) {
   return true;
 }
 
-const BOT_TOKEN = '8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ';
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const ADMIN_ID = 8515329556;
 const WEB_APP_URL = 'https://thriller-look-eyed-joke.trycloudflare.com';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;

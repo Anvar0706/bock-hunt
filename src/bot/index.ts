@@ -20,16 +20,17 @@ import {
 } from '../lib/db';
 import { botMessages, getBotMsg } from './messages';
 
-const BOT_TOKEN = (process.env.BOT_TOKEN || '8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ').trim();
+const BOT_TOKEN = (process.env.BOT_TOKEN || '').trim();
+const ACTIVE_BOT_TOKEN = BOT_TOKEN || '123456789:AA_DUMMY_BUILD_TOKEN_DO_NOT_USE';
 const ADMIN_ID = (process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556').trim();
 const WEB_APP_URL = (process.env.WEBAPP_URL || 'https://bock-hunt.vercel.app').trim();
 
-export const bot = new Bot(BOT_TOKEN, {
+export const bot = new Bot(ACTIVE_BOT_TOKEN, {
   client: {
     canUseWebhookReply: () => false,
   },
   botInfo: {
-    id: 8882805957,
+    id: Number(BOT_TOKEN.split(':')[0]) || 0,
     is_bot: true,
     first_name: 'BlockHunt Protocol',
     username: 'Block_huntbot',

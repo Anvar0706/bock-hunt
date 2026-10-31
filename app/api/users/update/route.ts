@@ -8,10 +8,9 @@ import {
   logAudit,
 } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyAdminRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
-
-const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
 
 export async function POST(req: Request) {
   try {
@@ -22,36 +21,34 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { action, userId, plan, status, adminTgId } = body || {};
-
-    // Server-side admin authorization verification
-    const callerId = String(adminTgId || '').trim();
-    if (callerId !== ADMIN_ID) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized: Admin privileges required' }, { status: 403 });
+    const auth = await verifyAdminRequest(req, body);
+    if (!auth.ok) {
+      return auth.response;
     }
 
+    const { action, userId, plan, status } = body || {};
     const tgId = String(userId || '').replace(/^user-/, '').trim();
 
     if (action === 'update_plan' && tgId && plan) {
       await updateUser(tgId, { plan: String(plan) });
-      await logAudit(callerId, 'update_plan', tgId, { plan });
+      await logAudit(auth.adminId, 'update_plan', tgId, { plan });
     } else if (action === 'reset_limit') {
       if (tgId === 'all' || userId === 'all') {
         await resetAllLimits();
-        await logAudit(callerId, 'reset_limit_all');
+        await logAudit(auth.adminId, 'reset_limit_all');
       } else if (tgId) {
         await resetUserLimit(tgId);
-        await logAudit(callerId, 'reset_limit', tgId);
+        await logAudit(auth.adminId, 'reset_limit', tgId);
       }
     } else if (action === 'reset_stats' && tgId) {
       await updateUser(tgId, { extractsCount: 0, totalExtractedUsd: 0 });
-      await logAudit(callerId, 'reset_stats', tgId);
+      await logAudit(auth.adminId, 'reset_stats', tgId);
     } else if (action === 'toggle_status' && tgId && status) {
       await updateUser(tgId, { status: String(status) });
-      await logAudit(callerId, 'toggle_status', tgId, { status });
+      await logAudit(auth.adminId, 'toggle_status', tgId, { status });
     } else if (action === 'delete' && tgId) {
       await deleteUser(tgId);
-      await logAudit(callerId, 'delete_user', tgId);
+      await logAudit(auth.adminId, 'delete_user', tgId);
     }
 
     const updatedUsers = await listUsers();

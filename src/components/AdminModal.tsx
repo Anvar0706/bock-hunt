@@ -129,11 +129,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   }, [users]);
 
+  // Helper to attach signed Telegram WebApp initData to administrative API requests
+  const getAdminHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    try {
+      const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })?.Telegram?.WebApp;
+      if (tg?.initData) {
+        headers['x-telegram-init-data'] = tg.initData;
+      }
+    } catch {}
+    return headers;
+  };
+
   // Fetch live real users from backend API
   const fetchLiveUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/users', { headers: getAdminHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data.ok && Array.isArray(data.users)) {
@@ -151,7 +165,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Fetch live pricing settings from backend API
   const fetchLivePricing = async () => {
     try {
-      const res = await fetch('/api/pricing-settings');
+      const res = await fetch('/api/pricing-settings', { headers: getAdminHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data.ok && data.settings) {
@@ -166,7 +180,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const fetchWithdrawals = async () => {
     try {
-      const res = await fetch('/api/admin/withdrawals');
+      const res = await fetch('/api/admin/withdrawals', { headers: getAdminHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data.ok && Array.isArray(data.withdrawals)) {
@@ -185,7 +199,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const note = noteParam || '';
       const res = await fetch('/api/admin/withdrawals/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ id, status, txHash, note, adminTgId }),
       });
       const data = await res.json();
@@ -222,7 +236,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       const res = await fetch('/api/pricing-settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ ...pricingForm, adminTgId }),
       });
       if (res.ok) {
@@ -248,7 +262,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       const res = await fetch('/api/users/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ ...payload, adminTgId }),
       });
       if (res.ok) {
@@ -430,7 +444,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setLoadingActivity(true);
     setUserExtractions([]);
     try {
-      const res = await fetch(`/api/extractions?tgId=${u.tgId}`);
+      const res = await fetch(`/api/extractions?tgId=${u.tgId}`, { headers: getAdminHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data.ok && Array.isArray(data.extractions)) {
@@ -460,7 +474,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const targetParam = broadcastTarget === 'all' ? 'all' : broadcastTarget.tgId;
       const res = await fetch('/api/broadcast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           target: targetParam,
           message: broadcastText.trim(),

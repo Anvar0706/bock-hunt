@@ -55,7 +55,7 @@ git push -u origin main
 
 | O'zgaruvchi nomi | Qiymati |
 |---|---|
-| `BOT_TOKEN` | `8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ` |
+| `BOT_TOKEN` | BotFather bergan token (masalan: `123456789:ABCdef...`) |
 | `ADMIN_TG_ID` | `8515329556` |
 | `DATABASE_URL` | Turso dagi URL (masalan: `libsql://blockhunt-user.turso.io`) |
 | `DATABASE_AUTH_TOKEN` | Turso dagi Token |
@@ -69,7 +69,7 @@ git push -u origin main
 Vercel da deploy tugagach, Telegram botingiz desktopingizsiz Vercel da ishlashi uchun brauzerda quyidagi havolani oching (yoki terminalda bitta so'rov yuboring):
 
 ```
-https://api.telegram.org/bot8882805957:AAH1YKIQqNry-vLmJvJDJ-WG49tf4J5hVdQ/setWebhook?url=https://SIZNING-VERCEL-DOMENINGIZ.vercel.app/api/bot
+https://api.telegram.org/bot<SIZNING_BOT_TOKENINGIZ>/setWebhook?url=https://SIZNING-VERCEL-DOMENINGIZ.vercel.app/api/bot
 ```
 
 Natijada ekranda shunday yozuv chiqadi:

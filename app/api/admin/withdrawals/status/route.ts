@@ -3,10 +3,9 @@ import { updateWithdrawalStatus, listWithdrawals, getUser, logAudit } from '@/li
 import { sendTelegramMessage } from '@/bot';
 import { getBotMsg } from '@/bot/messages';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyAdminRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
-
-const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
 
 export async function POST(req: Request) {
   try {
@@ -16,12 +15,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please wait.' }, { status: 429 });
     }
 
-    const { id, status, txHash, note, adminTgId } = await req.json();
-
-    const callerId = String(adminTgId || '').trim();
-    if (callerId !== ADMIN_ID) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized: Admin privileges required' }, { status: 403 });
+    const body = await req.json();
+    const auth = await verifyAdminRequest(req, body);
+    if (!auth.ok) {
+      return auth.response;
     }
+
+    const { id, status, txHash, note } = body || {};
 
     if (!id || (status !== 'PAID' && status !== 'REJECTED')) {
       return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
@@ -48,15 +48,21 @@ export async function POST(req: Request) {
       } else if (status === 'REJECTED') {
         const msg = getBotMsg(userLang, 'withdrawalRejected', {
           amountUsd: item.amountUsd,
-          reason: note,
+          network: item.network,
+          reason: note || (userLang === 'ru' ? 'Неверный адрес или подозрение на мультиаккаунт' : 'Invalid address or security hold'),
         });
         sendTelegramMessage(item.tgId, msg).catch(() => {});
       }
+
+      await logAudit(auth.adminId, `withdrawal_${status.toLowerCase()}`, String(item.tgId), {
+        withdrawalId: id,
+        amount: item.amountUsd,
+        txHash,
+        note,
+      });
     }
 
-    await logAudit(callerId, 'update_withdrawal', item?.tgId, { withdrawalId: id, status, txHash, note });
-
-    return NextResponse.json({ ok: true, status });
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
   }

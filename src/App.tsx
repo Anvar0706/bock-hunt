@@ -80,15 +80,6 @@ function MainApp() {
       })
       .catch(() => {});
 
-    fetch('/api/users', { signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.ok && Array.isArray(data.users) && data.users.length > 0) {
-          setAdminUsers(data.users);
-        }
-      })
-      .catch(() => {});
-
     fetch('/api/admin-addresses', { signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -714,10 +705,15 @@ function MainApp() {
   const handleSaveAddresses = async (updated: AdminDepositAddresses) => {
     setAdminAddresses(updated);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })?.Telegram?.WebApp;
+      if (tg?.initData) {
+        headers['x-telegram-init-data'] = tg.initData;
+      }
       await fetch('/api/deposit-addresses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
+        headers,
+        body: JSON.stringify({ addresses: updated, adminTgId: currentTgUser?.id }),
       });
     } catch (err) {
       console.error('Failed to sync deposit addresses with server:', err);

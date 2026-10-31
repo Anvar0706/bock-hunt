@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import { listUsers, logAudit } from '@/lib/db';
 import { sendTelegramMessage } from '@/bot';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyAdminRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
-
-const ADMIN_ID = process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556';
 
 export async function POST(req: Request) {
   try {
@@ -15,12 +14,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Broadcast rate limit reached. Please wait.' }, { status: 429 });
     }
 
-    const { target, message, adminTgId } = await req.json();
-
-    const callerId = String(adminTgId || '').trim();
-    if (callerId !== ADMIN_ID) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized: Admin privileges required' }, { status: 403 });
+    const body = await req.json();
+    const auth = await verifyAdminRequest(req, body);
+    if (!auth.ok) {
+      return auth.response;
     }
+
+    const { target, message } = body || {};
 
     if (!message || !String(message).trim()) {
       return NextResponse.json({ ok: false, error: 'Message cannot be empty' }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     if (target && target !== 'all') {
       const cleanTarget = String(target).replace(/^user-/, '').trim();
       const res = await sendTelegramMessage(cleanTarget, cleanMsg);
-      await logAudit(callerId, 'direct_message', cleanTarget, { length: cleanMsg.length, delivered: Boolean(res) });
+      await logAudit(auth.adminId, 'direct_message', cleanTarget, { length: cleanMsg.length, delivered: Boolean(res) });
       if (res) {
         return NextResponse.json({ ok: true, delivered: 1, failed: 0, sent: 1 });
       } else {
@@ -51,28 +51,21 @@ export async function POST(req: Request) {
     let failed = 0;
 
     for (const u of users) {
-      if (!u.tgId) continue;
       try {
         const res = await sendTelegramMessage(u.tgId, cleanMsg);
         if (res) sent++;
         else failed++;
-        await new Promise((r) => setTimeout(r, 40));
+        // Throttle to respect Telegram rate limits
+        await new Promise((r) => setTimeout(r, 65));
       } catch {
         failed++;
       }
     }
 
-    await logAudit(callerId, 'broadcast_all', undefined, { total: users.length, sent, failed });
+    await logAudit(auth.adminId, 'broadcast', 'all', { sent, failed, total: users.length });
 
-    return NextResponse.json({
-      ok: true,
-      total: users.length,
-      sent,
-      delivered: sent,
-      failed,
-    });
+    return NextResponse.json({ ok: true, sent, failed, total: users.length });
   } catch (err: any) {
-    console.error('Error in /api/admin/broadcast:', err?.message || err);
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
   }
 }
