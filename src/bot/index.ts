@@ -213,7 +213,7 @@ async function sendAdminDashboard(ctx: any, isEdit = false) {
       .text('📢 Broadcast & DM', 'admin_broadcast_help')
       .text('📊 System Telemetry', 'admin_stats')
       .row()
-      .webApp('🦈 Launch WebApp Admin Console', `${WEB_APP_URL}/admin`);
+      .webApp('⚡ Launch WebApp Admin Console', `${WEB_APP_URL}/admin`);
 
     if (isEdit) {
       try {
@@ -972,7 +972,7 @@ export async function notifyUserWalletFound(tgId: string, details: any, explicit
     lang = user?.lang || 'en';
   }
   const text = getBotMsg(lang, 'walletFound', details);
-  const launchButton = new InlineKeyboard().webApp('🦈 Open Mini App', WEB_APP_URL);
+  const launchButton = new InlineKeyboard().webApp('⚡ Open BlockHunt Protocol', WEB_APP_URL);
   return sendTelegramMessage(tgId, text, { reply_markup: launchButton });
 }
 

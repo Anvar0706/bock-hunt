@@ -18,7 +18,7 @@ export const botMessages = {
     btnLaunch: (isAdmin) => (isAdmin ? '⚡ Launch Protocol (Admin Mode)' : '⚡ Launch BlockHunt Protocol'),
     btnSwitchLang: () => '🇷🇺 Переключить на Русский',
     btnSwitchLangEn: () => '🇬🇧 Switch to English',
-    btnLaunchMiniApp: () => '🦈 Open Mini App',
+    btnLaunchMiniApp: () => '⚡ Open BlockHunt Protocol',
     btnShareTelegram: () => '🚀 Share with Friends',
 
     walletsList: (addresses) =>
@@ -149,7 +149,7 @@ export const botMessages = {
     btnLaunch: (isAdmin) => (isAdmin ? '⚡ Запустить Protocol (Режим Admin)' : '⚡ Запустить BlockHunt Protocol'),
     btnSwitchLang: () => '🇷🇺 Переключить на Русский',
     btnSwitchLangEn: () => '🇬🇧 Switch to English',
-    btnLaunchMiniApp: () => '🦈 Открыть Mini App',
+    btnLaunchMiniApp: () => '⚡ Открыть BlockHunt Protocol',
     btnShareTelegram: () => '🚀 Поделиться с друзьями',
 
     walletsList: (addresses) =>

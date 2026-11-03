@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ExtractedWallet, DemoWallet } from '../types';
-import { Eye, EyeOff, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, CheckCircle2, Send } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export interface TargetMatchCardProps {
@@ -125,7 +125,7 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
             </div>
           </div>
 
-          {/* Verification Status Footer */}
+          {/* Verification Status & Immediate Action CTA */}
           <div className="w-full">
             {isDispatched ? (
               <div className="w-full py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold tracking-wider text-[#94A3B8] uppercase select-none">
@@ -133,14 +133,25 @@ export const TargetMatchCard: React.FC<TargetMatchCardProps> = React.memo(({
                 <span>{t('balanceDispatched')} (0.00 {wallet.symbol})</span>
               </div>
             ) : (
-              <div className="w-full py-2.5 px-4 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 flex items-center justify-between text-xs font-mono-terminal select-none">
-                <span className="flex items-center gap-2 text-[#00E676] font-bold">
-                  <CheckCircle2 className="w-4 h-4 text-[#00E676]" />
-                  <span>{t('targetKeyVerified')}</span>
-                </span>
-                <span className="text-[9.5px] text-[#94A3B8] uppercase font-bold px-2 py-0.5 rounded bg-black/40 border border-white/5">
-                  100% UNLOCKED
-                </span>
+              <div className="space-y-2.5">
+                <div className="w-full py-2 px-3 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 flex items-center justify-between text-xs font-mono-terminal select-none">
+                  <span className="flex items-center gap-2 text-[#00E676] font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-[#00E676]" />
+                    <span>{t('targetKeyVerified')}</span>
+                  </span>
+                  <span className="text-[9.5px] text-[#00E676] uppercase font-bold px-2 py-0.5 rounded bg-[#00E676]/15 border border-[#00E676]/20">
+                    100% UNLOCKED
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => onInitiateTransfer?.(wallet as ExtractedWallet)}
+                  type="button"
+                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#00C853] hover:to-[#00B048] text-black font-extrabold text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(0,230,118,0.25)] active:scale-98 transition-all cursor-pointer"
+                >
+                  <Send className="w-4 h-4 text-black" />
+                  <span>{t('initiateTransfer') || 'INITIATE TRANSFER'}</span>
+                </button>
               </div>
             )}
           </div>

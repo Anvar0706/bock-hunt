@@ -127,7 +127,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         id: 'init-3',
         prefix: '[STANDBY]',
-        text: 'System standby. Tap START SECURITY SCAN to begin deep extraction.',
+        text: 'System standby. Tap START PRIVATE KEY EXTRACTION to configure environment & begin extraction.',
         statusText: '[STANDBY]',
         statusType: 'system',
         timestamp: t3,
@@ -519,112 +519,38 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
     ]);
 
-    // Master Scan Timeline Engine
-    // Community tier: Extended Cryptographic Search (~125s - 175s, 2-3 mins) with multiple public node congestion waves
-    // PRO / Enterprise: High-priority dedicated clusters (~20s - 45s, zero queues)
-    let T_MATCH: number;
+    // Master Extractor Timeline Engine
+    // Phase 1: Pre-Extract (Environment Setup, Cluster Sockets, Server Pressure)
+    //   - Community: 50s to 120s (dynamic randomized in 55s - 105s window)
+    //   - PRO / Enterprise: 15s to 25s (VIP priority cluster link)
+    let T_PRE_EXTRACT: number;
+    let T_ACTIVE_STREAM: number;
     let targetRecords: number;
 
-    interface CongestionWave {
-      id: number;
-      start: number;
-      end: number;
-      step1Logged: boolean;
-      step2Logged: boolean;
-      step3Logged: boolean;
-      resolved: boolean;
-      startLog: string;
-      step2Log: string;
-      step3Log: string;
-      resolvedLog: string;
-      subStatus: string;
-    }
-
-    const congestionWaves: CongestionWave[] = [];
-
     if (isCommunityPlan) {
-      // Community Plan: Extended Cryptographic Search (~125s - 175s, 2-3 minutes)
-      T_MATCH = Math.floor(125000 + Math.random() * 50000);
-      targetRecords = Math.floor(650000 + Math.random() * 300000);
-
-      // WAVE 1: Early Public Node Saturation & Queue Wait (~18s - 34s into scan)
-      const w1Start = Math.floor(18000 + Math.random() * 4000);
-      const w1Duration = Math.floor(13000 + Math.random() * 4000);
-      congestionWaves.push({
-        id: 1,
-        start: w1Start,
-        end: w1Start + w1Duration,
-        step1Logged: false,
-        step2Logged: false,
-        step3Logged: false,
-        resolved: false,
-        startLog: '> [SHARED POOL SATURATED] Public community nodes at 99.4% capacity. Priority lanes allocated to PRO tiers.',
-        step2Log: '> [QUEUE POSITION #18] Free tier slot pending. Re-routing through low-priority mempool relay...',
-        step3Log: '> [HANDSHAKE RETRY] Awaiting response from fallback node [BlockHunt-Public-02:443]...',
-        resolvedLog: '> [FAILOVER RESTORED] Public node allocated. Resuming extraction stream...',
-        subStatus: 'QUEUE WAIT #18',
-      });
-
-      // WAVE 2: Mid-Scan RPC Rate Throttling (~55s - 75s into scan)
-      const w2Start = Math.floor(T_MATCH * 0.45 + Math.random() * 4000);
-      const w2Duration = Math.floor(15000 + Math.random() * 5000);
-      congestionWaves.push({
-        id: 2,
-        start: w2Start,
-        end: w2Start + w2Duration,
-        step1Logged: false,
-        step2Logged: false,
-        step3Logged: false,
-        resolved: false,
-        startLog: '> [RPC RATE LIMIT] Public node 10 req/s threshold exceeded. Cooldown active (public tier throttling).',
-        step2Log: '> [BANDWIDTH RESTRICTED] Priority lanes reserved for PRO/Enterprise compute clusters.',
-        step3Log: '> [MEMPOOL RESYNC] Synchronizing SECP256K1 memory stream with secondary validator...',
-        resolvedLog: '> [CHANNEL RESTORED] Public lane restored. Resuming key permutations...',
-        subStatus: 'THROTTLED // RETRY',
-      });
-
-      // WAVE 3: Late Pre-Collision Mempool Jam (~75% into scan)
-      const w3Start = Math.floor(T_MATCH * 0.74 + Math.random() * 3000);
-      const w3Duration = Math.floor(13000 + Math.random() * 4000);
-      const safeW3End = Math.min(T_MATCH - 3600, w3Start + w3Duration);
-      if (safeW3End > w3Start + 5000) {
-        congestionWaves.push({
-          id: 3,
-          start: w3Start,
-          end: safeW3End,
-          step1Logged: false,
-          step2Logged: false,
-          step3Logged: false,
-          resolved: false,
-          startLog: '> [CLUSTER CONGESTION] Heavy block mempool congestion on public relay. Queue delay active.',
-          step2Log: '> [HEALTH CHECK] Validating elliptic curve pipeline integrity on backup route...',
-          step3Log: '> [STANDBY RECONNECT] Re-establishing encrypted handshake on node [BlockHunt-Public-04]...',
-          resolvedLog: `> [PIPELINE RESTORED] Resuming single-chain search on [${safeNetworks.join(', ')}]...`,
-          subStatus: 'BUFFERING // BUSY',
-        });
-      }
+      T_PRE_EXTRACT = Math.floor(55000 + Math.random() * 50000); // 55s - 105s (within 50-120s)
+      T_ACTIVE_STREAM = Math.floor(25000 + Math.random() * 15000); // 25s - 40s
+      targetRecords = Math.floor(620000 + Math.random() * 320000);
     } else {
-      // PRO / Enterprise Plan: Blazingly Fast Dedicated VIP Clusters (~20s - 45s)
-      const networkCount = Math.max(1, Math.min(3, safeNetworks.length));
-      if (networkCount === 3) {
-        T_MATCH = Math.floor(22000 + Math.random() * 16000);
-      } else if (networkCount === 2) {
-        T_MATCH = Math.floor(34000 + Math.random() * 18000);
-      } else {
-        T_MATCH = Math.floor(46000 + Math.random() * 18000);
-      }
-      targetRecords = Math.floor(240000 + Math.random() * 160000);
+      T_PRE_EXTRACT = Math.floor(14000 + Math.random() * 10000); // 14s - 24s
+      T_ACTIVE_STREAM = Math.floor(12000 + Math.random() * 6000); // 12s - 18s
+      targetRecords = Math.floor(1600000 + Math.random() * 800000);
     }
 
-    const T_INIT = 500;    // 0.5s -> Cluster socket ready, allocate 512MB heap
-    const T_SCAN = 1200;   // 1.2s -> Commencing live multi-core extraction stream!
-    const T_ANALYSIS = T_MATCH - 2800; // Approaching collision analysis phase (last 2.8s before match)
+    const T_MATCH = T_PRE_EXTRACT + T_ACTIVE_STREAM;
+    const T_ANALYSIS = T_MATCH - 2800; // Approaching collision analysis (last 2.8s)
+
     let isAnalysisTriggered = false;
+    let preStep1 = false;
+    let preStep2 = false;
+    let preStep3 = false;
+    let preStep4 = false;
+    let preStep5 = false;
+    let streamCongestionLogged = false;
 
     const startTime = performance.now();
     let lastBeepTime = 0;
     let lastLogTime = 0;
-    let reachedInit = false;
     let reachedScan = false;
     let candidateIdx = 0;
 
@@ -642,131 +568,159 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         const now = performance.now();
         const elapsed = now - startTime;
 
-        // PHASE 1: INITIALIZING (0.5s - 1.2s)
-        if (elapsed >= T_INIT && elapsed < T_SCAN) {
-          if (!reachedInit) {
-            reachedInit = true;
-            setScanState('INITIALIZING');
-            setWalletFoundDisplay(t('initializing'));
-            setPrivateKeyDisplay(t('buffering'));
-            playSimulatedBeep(720, 0.08);
+        // ========================================================
+        // 1. PRE-EXTRACT PHASE (Environment Setup, Cluster Sockets, Server Pressure)
+        // Duration: 50 - 120s (Community), 14 - 24s (PRO)
+        // ========================================================
+        if (elapsed < T_PRE_EXTRACT) {
+          const preProgress = elapsed / T_PRE_EXTRACT;
+
+          // Sub-stage 1: Initial Socket & Sandbox (0 - 15%)
+          if (preProgress < 0.15 && !preStep1) {
+            preStep1 = true;
+            setWalletFoundDisplay(t('connecting'));
+            setPrivateKeyDisplay(t('handshake'));
+          }
+
+          // Sub-stage 2: Severe Server Pressure & Queue (15% - 42%)
+          if (preProgress >= 0.15 && preProgress < 0.42 && !preStep2) {
+            preStep2 = true;
+            setWalletFoundDisplay(t('allServersBusy'));
+            setPrivateKeyDisplay('QUEUE WAIT #14');
+            playSimulatedBeep(440, 0.16);
             setLogs((prev) => [
               ...prev.slice(-14),
               {
-                id: `init-start-${Date.now()}`,
-                text: '> Direct cluster socket authenticated. Allocating 512MB extraction heap...',
+                id: `load-${Date.now()}`,
+                text: '> [SERVER OVERLOAD] High mempool cluster load detected (99.4% capacity)!',
+                statusText: '[ALL SERVERS BUSY]',
+                statusType: 'warning',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+              {
+                id: `queue-${Date.now()}`,
+                text: '> [QUEUE POSITION #14] Public community slot pending. Priority lanes allocated to PRO tiers.',
+                statusText: '[QUEUE WAIT]',
+                statusType: 'warning',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          }
+
+          // Sub-stage 3: Connection Dropped / Lost (42% - 68%)
+          if (preProgress >= 0.42 && preProgress < 0.68 && !preStep3) {
+            preStep3 = true;
+            setWalletFoundDisplay(t('connectionLost'));
+            setPrivateKeyDisplay(t('reconnecting'));
+            playSimulatedBeep(330, 0.22);
+            setLogs((prev) => [
+              ...prev.slice(-14),
+              {
+                id: `lost-${Date.now()}`,
+                text: '> [CONNECTION LOST] Socket handshake dropped due to peak server pressure.',
+                statusText: '[DROPPED]',
+                statusType: 'failed',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+              {
+                id: `retry-${Date.now()}`,
+                text: '> [RECONNECTING] Dialing fallback cluster node [BlockHunt-Public-03:443]...',
+                statusText: '[RE-ESTABLISHING]',
+                statusType: 'warning',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          }
+
+          // Sub-stage 4: Fallback Node Linked & Memory Allocation (68% - 88%)
+          if (preProgress >= 0.68 && preProgress < 0.88 && !preStep4) {
+            preStep4 = true;
+            setWalletFoundDisplay(t('environmentInit') || 'ENVIRONMENT SETUP');
+            setPrivateKeyDisplay('BUFFERING HEAP');
+            playSimulatedBeep(740, 0.08);
+            setLogs((prev) => [
+              ...prev.slice(-14),
+              {
+                id: `restored-${Date.now()}`,
+                text: '> [HANDSHAKE RESTORED] Fallback node accepted connection.',
+                statusText: '[RESTORED]',
+                statusType: 'success',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+              {
+                id: `heap-${Date.now()}`,
+                text: '> Allocating 512MB RAM extraction buffer for SECP256K1 scalar points...',
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
-                id: `init-step-${Date.now()}`,
-                text: '> Mounting SECP256K1 & BIP-39 dictionary seeds across networks...',
+                id: `mount-${Date.now()}`,
+                text: '> Mounting BIP-39 & BIP-44 dictionary permutation seeds...',
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
             ]);
           }
+
+          // Sub-stage 5: Environment Ready (88% - 100%)
+          if (preProgress >= 0.88 && !preStep5) {
+            preStep5 = true;
+            setWalletFoundDisplay('ENVIRONMENT READY');
+            setPrivateKeyDisplay('LAUNCHING...');
+            playSimulatedBeep(880, 0.12);
+            setLogs((prev) => [
+              ...prev.slice(-14),
+              {
+                id: `ready-${Date.now()}`,
+                text: '> [ENVIRONMENT READY] All cluster nodes synchronized. Pre-extract phase complete!',
+                statusText: '[READY]',
+                statusType: 'success',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+              {
+                id: `launch-${Date.now()}`,
+                text: `> Commencing ${safeNetworks.length > 1 ? 'multi-core parallel' : 'single-core'} private key extraction on [${safeNetworks.join(', ')}]...`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          }
+
           return;
         }
 
-        // PHASE 2: SCANNING / LIVE EXTRACTION STREAM (1.2s - T_MATCH)
-        if (elapsed >= T_SCAN && elapsed < T_MATCH) {
+        // ========================================================
+        // 2. ACTIVE EXTRACTION STREAM PHASE (T_PRE_EXTRACT <= elapsed < T_MATCH)
+        // ========================================================
+        if (elapsed >= T_PRE_EXTRACT && elapsed < T_MATCH) {
           if (!reachedScan) {
             reachedScan = true;
             setScanState('SCANNING');
             playSimulatedBeep(520, 0.12);
 
-            // First address & key for instant display
             const firstCand = CANDIDATE_POOL[0];
             setWalletFoundDisplay(firstCand.addr);
             setPrivateKeyDisplay(firstCand.key);
+          }
 
+          // Mid-stream temporary congestion bump (at ~45% into active stream)
+          const streamElapsed = elapsed - T_PRE_EXTRACT;
+          const streamDuration = T_MATCH - T_PRE_EXTRACT;
+          const streamProgress = Math.min(1.0, Math.max(0.0, streamElapsed / streamDuration));
+
+          if (streamProgress >= 0.45 && streamProgress < 0.58 && !streamCongestionLogged) {
+            streamCongestionLogged = true;
+            playSimulatedBeep(480, 0.1);
             setLogs((prev) => [
               ...prev.slice(-14),
               {
-                id: `scan-commence-${Date.now()}`,
-                text: `> Commencing ${safeNetworks.length > 1 ? 'multi-core parallel' : 'single-core'} extraction stream on [${safeNetworks.join(', ')}]...`,
-                statusType: 'system',
+                id: `stream-busy-${Date.now()}`,
+                text: '> [SERVER PRESSURE] Heavy mempool block density. Temporary pipeline throttling...',
+                statusText: '[SERVER LOAD]',
+                statusType: 'warning',
                 timestamp: new Date().toLocaleTimeString(),
               },
             ]);
-          }
-
-          // Check if currently inside any Congestion Wave (e.g. Free Tier Multi-Wave Congestion)
-          const activeWave = congestionWaves.find((w) => elapsed >= w.start && elapsed < w.end);
-
-          if (activeWave) {
-            const waveElapsed = elapsed - activeWave.start;
-
-            if (!activeWave.step1Logged) {
-              activeWave.step1Logged = true;
-              setWalletFoundDisplay(t('allServersBusy'));
-              setPrivateKeyDisplay(t('reconnecting'));
-              playSimulatedBeep(440, 0.15);
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `busy-w${activeWave.id}-${Date.now()}`,
-                  text: activeWave.startLog,
-                  statusText: '[ALL SERVERS BUSY]',
-                  statusType: 'warning',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
-
-            // Step 2 log (after ~3.5s into congestion)
-            if (!activeWave.step2Logged && waveElapsed >= 3500) {
-              activeWave.step2Logged = true;
-              setPrivateKeyDisplay(activeWave.subStatus);
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `busy-w${activeWave.id}-step2-${Date.now()}`,
-                  text: activeWave.step2Log,
-                  statusText: '[QUEUE WAIT]',
-                  statusType: 'warning',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
-
-            // Step 3 log (after ~7.5s into congestion)
-            if (!activeWave.step3Logged && waveElapsed >= 7500) {
-              activeWave.step3Logged = true;
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `busy-w${activeWave.id}-step3-${Date.now()}`,
-                  text: activeWave.step3Log,
-                  statusText: '[RE-ESTABLISHING]',
-                  statusType: 'warning',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
-
-            // During congestion, progress keys very slowly (simulating authentic queued pipeline)
-            setRecordsScanned((prev) => prev + Math.floor(Math.random() * 3 + 1));
-            return;
-          }
-
-          // Check if any wave just resolved
-          for (const wave of congestionWaves) {
-            if (elapsed >= wave.end && wave.step1Logged && !wave.resolved) {
-              wave.resolved = true;
-              playSimulatedBeep(880, 0.12);
-              setLogs((prev) => [
-                ...prev.slice(-14),
-                {
-                  id: `restored-w${wave.id}-${Date.now()}`,
-                  text: wave.resolvedLog,
-                  statusText: '[SESSION RESTORED]',
-                  statusType: 'success',
-                  timestamp: new Date().toLocaleTimeString(),
-                },
-              ]);
-            }
           }
 
           // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 2.8s)
@@ -787,20 +741,15 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // Compute monotonic progress from 0.0 to 1.0 during active extraction:
-          const scanDuration = T_MATCH - T_SCAN;
-          const scanElapsed = elapsed - T_SCAN;
-          const scanProgress = Math.min(1.0, Math.max(0.0, scanElapsed / scanDuration));
-
-          // Monotonic ascending keys
-          const jitter = Math.sin(scanElapsed / 220) * 110;
+          // Dynamic records counter (monotonically ascending during active stream)
+          const jitter = Math.sin(streamElapsed / 220) * 110;
           const dynamicRecords = Math.min(
             targetRecords,
-            Math.max(150, Math.floor(scanProgress * targetRecords + jitter))
+            Math.max(150, Math.floor(streamProgress * targetRecords + jitter))
           );
           setRecordsScanned(dynamicRecords);
 
-          // Live rotate candidate address and key from pre-allocated pool (zero string allocations)
+          // Live rotate candidate address and key from pre-allocated pool
           if (!isAnalysisTriggered) {
             const cand = CANDIDATE_POOL[candidateIdx % CANDIDATE_POOL.length];
             candidateIdx++;

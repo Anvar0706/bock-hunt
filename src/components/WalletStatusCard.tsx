@@ -16,27 +16,55 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
   isScanning = false,
 }) => {
   const { t } = useLanguage();
-  const isBusy = walletFoundText.includes('BUSY') || walletFoundText.includes('ЗАНЯТЫ');
-  const isLost = walletFoundText.includes('LOST') || walletFoundText.includes('ПОТЕРЯНА');
+
+  const isBusy =
+    walletFoundText.includes('BUSY') ||
+    walletFoundText.includes('ЗАНЯТЫ') ||
+    walletFoundText.includes('OVERLOAD') ||
+    privateKeyText.includes('QUEUE') ||
+    privateKeyText.includes('PRESSURE');
+
+  const isLost =
+    walletFoundText.includes('LOST') ||
+    walletFoundText.includes('ПОТЕРЯНА') ||
+    walletFoundText.includes('DROPPED');
+
+  const isConnecting =
+    walletFoundText.includes('CONNECTING') ||
+    walletFoundText.includes('ПОДКЛЮЧЕНИЕ') ||
+    walletFoundText.includes('ENVIRONMENT') ||
+    walletFoundText.includes('ALLOCAT');
 
   return (
     <div className="grid grid-cols-2 gap-3 w-full px-4 mb-3 select-none">
       {/* CARD 1: WALLET FOUND / INGESTION STREAM */}
       <div
-        className={`rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden transition-all duration-150 border bg-[#12151F] ${
+        className={`rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden transition-all duration-200 border bg-[#12151F] ${
           isMatched
-            ? 'border-[#00E676]/50 shadow-[0_4px_16px_rgba(0,230,118,0.15)]'
+            ? 'border-[#00E676]/60 shadow-[0_4px_20px_rgba(0,230,118,0.2)]'
             : isLost
-            ? 'border-[#EF4444]/50'
+            ? 'border-red-500/60 shadow-[0_4px_20px_rgba(239,68,68,0.25)]'
             : isBusy
-            ? 'border-[#F59E0B]/40'
+            ? 'border-amber-500/60 shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
+            : isConnecting
+            ? 'border-[#22D3EE]/40 shadow-[0_2px_12px_rgba(34,211,238,0.15)]'
             : isScanning
-            ? 'border-white/15'
+            ? 'border-[#22D3EE]/30 shadow-[0_2px_12px_rgba(34,211,238,0.1)]'
             : 'border-white/10'
         }`}
       >
         {/* Subtle top reflection hairline */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+        <div
+          className={`absolute top-0 left-0 right-0 h-[1px] pointer-events-none transition-colors ${
+            isMatched
+              ? 'bg-gradient-to-r from-transparent via-[#00E676]/60 to-transparent'
+              : isLost
+              ? 'bg-gradient-to-r from-transparent via-red-500/60 to-transparent'
+              : isBusy
+              ? 'bg-gradient-to-r from-transparent via-amber-400/60 to-transparent'
+              : 'bg-gradient-to-r from-transparent via-white/15 to-transparent'
+          }`}
+        />
 
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase">
@@ -47,10 +75,10 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
               isMatched
                 ? 'bg-[#00E676]/15 text-[#00E676]'
                 : isLost
-                ? 'bg-[#EF4444]/15 text-[#EF4444]'
+                ? 'bg-red-500/20 text-red-400'
                 : isBusy
-                ? 'bg-[#F59E0B]/15 text-[#F59E0B]'
-                : isScanning
+                ? 'bg-amber-500/20 text-amber-400'
+                : isConnecting || isScanning
                 ? 'bg-[#22D3EE]/15 text-[#22D3EE]'
                 : 'bg-white/5 text-[#94A3B8]'
             }`}
@@ -61,13 +89,15 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
         <div className="flex items-baseline py-0.5">
           <span
-            className={`font-mono-terminal text-sm sm:text-base font-bold truncate ${
+            className={`font-mono-terminal text-sm sm:text-base font-bold truncate transition-colors ${
               isMatched
                 ? 'text-[#00E676]'
                 : isLost
-                ? 'text-[#EF4444]'
+                ? 'text-red-400'
                 : isBusy
-                ? 'text-[#F59E0B]'
+                ? 'text-amber-300'
+                : isConnecting
+                ? 'text-[#38E8FF]'
                 : isScanning
                 ? 'text-[#E2E8F0]'
                 : 'text-[#CBD5E1]'
@@ -84,21 +114,31 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
               isMatched
                 ? 'bg-[#00E676]'
                 : isLost
-                ? 'bg-[#EF4444] animate-ping'
+                ? 'bg-red-500 animate-ping'
                 : isBusy
-                ? 'bg-[#F59E0B] animate-ping'
-                : isScanning
+                ? 'bg-amber-400 animate-pulse'
+                : isConnecting || isScanning
                 ? 'bg-[#22D3EE] animate-pulse'
                 : 'bg-[#64748B]'
             }`}
           />
-          <span className="text-[9.5px] font-mono-terminal tracking-tight text-[#94A3B8]">
+          <span
+            className={`text-[9.5px] font-mono-terminal tracking-tight uppercase ${
+              isLost
+                ? 'text-red-400 font-bold'
+                : isBusy
+                ? 'text-amber-300 font-bold'
+                : 'text-[#94A3B8]'
+            }`}
+          >
             {isMatched
               ? t('statusLocated')
               : isLost
               ? t('connectionLost')
               : isBusy
               ? t('allServersBusy')
+              : isConnecting
+              ? t('statusConnecting')
               : isScanning
               ? t('statusExtracting')
               : t('statusReadyForScan')}
@@ -108,20 +148,32 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
       {/* CARD 2: PRIVATE KEY / ENTROPY RESOLVER */}
       <div
-        className={`rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden transition-all duration-150 border bg-[#12151F] ${
+        className={`rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden transition-all duration-200 border bg-[#12151F] ${
           isMatched
-            ? 'border-[#22D3EE]/50 shadow-[0_4px_16px_rgba(34,211,238,0.15)]'
+            ? 'border-[#22D3EE]/60 shadow-[0_4px_20px_rgba(34,211,238,0.2)]'
             : isLost
-            ? 'border-[#EF4444]/50'
+            ? 'border-red-500/60 shadow-[0_4px_20px_rgba(239,68,68,0.25)]'
             : isBusy
-            ? 'border-[#F59E0B]/40'
+            ? 'border-amber-500/60 shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
+            : isConnecting
+            ? 'border-[#22D3EE]/40 shadow-[0_2px_12px_rgba(34,211,238,0.15)]'
             : isScanning
-            ? 'border-white/15'
+            ? 'border-[#22D3EE]/30 shadow-[0_2px_12px_rgba(34,211,238,0.1)]'
             : 'border-white/10'
         }`}
       >
         {/* Subtle top reflection hairline */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+        <div
+          className={`absolute top-0 left-0 right-0 h-[1px] pointer-events-none transition-colors ${
+            isMatched
+              ? 'bg-gradient-to-r from-transparent via-[#22D3EE]/60 to-transparent'
+              : isLost
+              ? 'bg-gradient-to-r from-transparent via-red-500/60 to-transparent'
+              : isBusy
+              ? 'bg-gradient-to-r from-transparent via-amber-400/60 to-transparent'
+              : 'bg-gradient-to-r from-transparent via-white/15 to-transparent'
+          }`}
+        />
 
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-bold tracking-wider text-[#94A3B8] uppercase">
@@ -132,10 +184,10 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
               isMatched
                 ? 'bg-[#22D3EE]/15 text-[#22D3EE]'
                 : isLost
-                ? 'bg-[#EF4444]/15 text-[#EF4444]'
+                ? 'bg-red-500/20 text-red-400'
                 : isBusy
-                ? 'bg-[#F59E0B]/15 text-[#F59E0B]'
-                : isScanning
+                ? 'bg-amber-500/20 text-amber-400'
+                : isConnecting || isScanning
                 ? 'bg-[#22D3EE]/15 text-[#22D3EE]'
                 : 'bg-white/5 text-[#94A3B8]'
             }`}
@@ -146,13 +198,15 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
 
         <div className="flex items-baseline py-0.5">
           <span
-            className={`font-mono-terminal text-sm sm:text-base font-bold truncate ${
+            className={`font-mono-terminal text-sm sm:text-base font-bold truncate transition-colors ${
               isMatched
                 ? 'text-[#38E8FF]'
                 : isLost
-                ? 'text-[#FCA5A5]'
+                ? 'text-red-400'
                 : isBusy
-                ? 'text-[#FDE68A]'
+                ? 'text-amber-300'
+                : isConnecting
+                ? 'text-[#38E8FF]'
                 : isScanning
                 ? 'text-[#94A3B8]'
                 : 'text-[#CBD5E1]'
@@ -169,23 +223,33 @@ export const WalletStatusCards: React.FC<WalletStatusCardProps> = React.memo(({
               isMatched
                 ? 'bg-[#22D3EE]'
                 : isLost
-                ? 'bg-[#EF4444] animate-pulse'
+                ? 'bg-red-500 animate-pulse'
                 : isBusy
-                ? 'bg-[#F59E0B] animate-pulse'
-                : isScanning
+                ? 'bg-amber-400 animate-pulse'
+                : isConnecting || isScanning
                 ? 'bg-[#22D3EE] animate-pulse'
                 : 'bg-[#64748B]'
             }`}
           />
-          <span className="text-[9.5px] font-mono-terminal tracking-tight text-[#94A3B8]">
+          <span
+            className={`text-[9.5px] font-mono-terminal tracking-tight uppercase ${
+              isLost
+                ? 'text-red-400 font-bold'
+                : isBusy
+                ? 'text-amber-300 font-bold'
+                : 'text-[#94A3B8]'
+            }`}
+          >
             {isMatched
               ? t('statusEntropyResolved')
               : isLost
-              ? t('reestablishing')
-              : isBusy
               ? t('reconnecting')
+              : isBusy
+              ? t('serverPressure') || 'SERVER PRESSURE'
+              : isConnecting
+              ? t('environmentInit') || 'ENVIRONMENT SETUP'
               : isScanning
-              ? t('analyzing')
+              ? t('statusKeyBuffer')
               : t('statusKeyBuffer')}
           </span>
         </div>
