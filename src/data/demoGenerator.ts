@@ -3,7 +3,7 @@ import type { CryptoPrices } from './cryptoPrices';
 import { DEFAULT_CRYPTO_PRICES } from './cryptoPrices';
 
 // High-entropy hexadecimal generator
-function randomHex(length: number): string {
+export function randomHex(length: number): string {
   const chars = '0123456789abcdef';
   let result = '';
   for (let i = 0; i < length; i++) {
@@ -130,74 +130,29 @@ function getNetworkTag(network: Network): string {
   }
 }
 
-// Real-time cryptographic scanner telemetry logs (Authentic CMD / Console extraction stream)
+// Real-time cryptographic scanner telemetry logs (Chain | Wallet | State)
 export function generateRandomScanLog(networks: Network[]): TerminalLog {
   const safe = Array.isArray(networks) && networks.length > 0 ? networks : (['TRON', 'ETHEREUM', 'SOLANA'] as Network[]);
   const chosenNetwork = safe[Math.floor(Math.random() * safe.length)];
   const addr = generateDerivedAddress(chosenNetwork, true);
-  const coreNum = Math.floor(Math.random() * 8) + 1;
-  const privSnippet = `0x${randomHex(4)}...${randomHex(2)}`;
-  const netTag = chosenNetwork === 'TRON' ? 'TRC20' : chosenNetwork === 'ETHEREUM' ? 'ERC20' : 'SOL';
+  const chainTag = chosenNetwork === 'TRON' ? 'TRC-20' : chosenNetwork === 'ETHEREUM' ? 'ERC-20' : 'SOL';
 
-  const logVariants = [
-    {
-      prefix: `core-0${coreNum}`,
-      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
-      statusText: '[NO KEY]',
-      statusType: 'nokey',
-    },
-    {
-      prefix: `core-0${coreNum}`,
-      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
-      statusText: '[EMPTY BAL]',
-      statusType: 'empty',
-    },
-    {
-      prefix: 'BIP44',
-      text: `m/44'/${chosenNetwork === 'TRON' ? '195' : chosenNetwork === 'ETHEREUM' ? '60' : '501'}'/0'/0/${Math.floor(Math.random() * 500)} → ${addr}`,
-      statusText: '[MISMATCH]',
-      statusType: 'failed',
-    },
-    {
-      prefix: 'SECP',
-      text: `scalar P=k*G mod n | ${addr}`,
-      statusText: '[NO MATCH]',
-      statusType: 'nokey',
-    },
-    {
-      prefix: 'MEMPOOL',
-      text: `blk #${Math.floor(Math.random() * 5000 + 19482000)} | verify ${addr}`,
-      statusText: '[0.00 BAL]',
-      statusType: 'empty',
-    },
-    {
-      prefix: `core-0${coreNum}`,
-      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
-      statusText: '[DORMANT]',
-      statusType: 'empty',
-    },
-    {
-      prefix: 'BLOOM',
-      text: `target index probe → ${addr}`,
-      statusText: '[NEGATIVE]',
-      statusType: 'failed',
-    },
-    {
-      prefix: `core-0${coreNum}`,
-      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
-      statusText: '[NO KEY]',
-      statusType: 'nokey',
-    },
+  const states = [
+    { text: '[EMPTY]', type: 'empty' as const },
+    { text: '[0.00 BAL]', type: 'empty' as const },
+    { text: '[NO KEY]', type: 'nokey' as const },
+    { text: '[DORMANT]', type: 'empty' as const },
+    { text: '[NO MATCH]', type: 'nokey' as const },
+    { text: '[UNMATCHED]', type: 'failed' as const },
   ];
-
-  const picked = logVariants[Math.floor(Math.random() * logVariants.length)];
+  const pickedState = states[Math.floor(Math.random() * states.length)];
 
   return {
     id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-    prefix: picked.prefix,
-    text: picked.text,
-    statusText: picked.statusText,
-    statusType: picked.statusType,
+    prefix: chainTag,
+    text: addr,
+    statusText: pickedState.text,
+    statusType: pickedState.type,
     timestamp: new Date().toLocaleTimeString(),
   };
 }

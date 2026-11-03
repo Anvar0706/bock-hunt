@@ -7,7 +7,7 @@ import { ScanButton } from '../components/ScanButton';
 import { CancelButton } from '../components/CancelButton';
 import { TargetMatchCard } from '../components/TargetMatchCard';
 import { TransferModal } from '../components/TransferModal';
-import { generateRandomScanLog, generateMatchScanLog, generateRandomMatchedWallet, generateDerivedAddress, generatePrivateKey } from '../data/cryptoEngine';
+import { generateRandomScanLog, generateMatchScanLog, generateRandomMatchedWallet, generateDerivedAddress, generatePrivateKey, randomHex } from '../data/cryptoEngine';
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getEffectiveProPrice } from '../data/adminSettings';
@@ -315,7 +315,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
     ]);
 
-    // Step 2 (t = +900ms): Curve point matched to on-chain address
+    // Step 2 (t = +2800ms): Curve point matched to on-chain address
     scheduleTimeout(() => {
       if (sessionTokenRef.current !== session) return;
       setPrivateKeyDisplay('DERIVING CURVE...');
@@ -324,9 +324,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         ...prev.slice(-14),
         matchLog,
       ]);
-    }, 900);
+    }, 2800);
 
-    // Step 3 (t = +1700ms): Private key decrypted and balance verified
+    // Step 3 (t = +5600ms): Private key decrypted and balance verified
     scheduleTimeout(() => {
       if (sessionTokenRef.current !== session) return;
       setPrivateKeyDisplay(maskedKey);
@@ -342,9 +342,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           timestamp: new Date().toLocaleTimeString(),
         },
       ]);
-    }, 1700);
+    }, 5600);
 
-    // Step 4 (t = +2400ms): Dispatch ready & target card presented with victory chime
+    // Step 4 (t = +8200ms): Dispatch ready & target card presented with victory chime
     scheduleTimeout(() => {
       if (sessionTokenRef.current !== session) return;
       setLogs((prev) => [
@@ -380,7 +380,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       } catch (err) {
         console.error('[BlockHunt] onWalletFound error:', err);
       }
-    }, 2400);
+    }, 8200);
 
     // Persist synchronous free tier usage count to localStorage
     try {
@@ -553,7 +553,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
     // Master Extractor Timeline Engine
     // Each step represents a genuine OS / network / cryptographic operation with an authentic delay
-    const preMultiplier = isCommunityPlan ? 1.0 : 0.32;
+    const preMultiplier = isCommunityPlan ? 1.0 : 0.35;
 
     const preSteps: Array<{
       prefix: string;
@@ -569,13 +569,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         prefix: '[INIT]',
         text: 'Binding C++ SIMD AVX2 acceleration kernel... [OK]',
         statusType: 'system',
-        delay: Math.round(900 * preMultiplier),
+        delay: Math.round(2500 * preMultiplier),
       },
       {
         prefix: '[MEMORY]',
         text: 'Allocating host pinned memory: 512 MB scalar circular buffer in RAM... [OK]',
         statusType: 'system',
-        delay: Math.round(1400 * preMultiplier),
+        delay: Math.round(3800 * preMultiplier),
       },
       {
         prefix: '[SOCKET]',
@@ -584,14 +584,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: t('connecting'),
         cardKey: t('handshake'),
-        delay: Math.round(2000 * preMultiplier),
+        delay: Math.round(5600 * preMultiplier),
       },
       {
         prefix: '[TLS]',
         text: 'TCP SYN-ACK received (RTT: 28ms) | TLS 1.3 CHACHA20-POLY1305 negotiated',
         statusText: '[SECURE]',
         statusType: 'system',
-        delay: Math.round(2200 * preMultiplier),
+        delay: Math.round(6200 * preMultiplier),
       },
       {
         prefix: '[SERVER]',
@@ -601,7 +601,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         cardWallet: t('allServersBusy'),
         cardKey: 'PEAK LOAD 99%',
         beepFreq: 440,
-        delay: Math.round(2600 * preMultiplier),
+        delay: Math.round(7400 * preMultiplier),
       },
       {
         prefix: '[QUEUE]',
@@ -611,13 +611,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         cardWallet: t('allServersBusy'),
         cardKey: 'QUEUE WAIT #14',
         beepFreq: 440,
-        delay: Math.round(2800 * preMultiplier),
+        delay: Math.round(8000 * preMultiplier),
       },
       {
         prefix: '[DIAG]',
         text: 'Cluster backlog: 14,291 unverified candidate blocks in memory buffer',
         statusType: 'system',
-        delay: Math.round(3400 * preMultiplier),
+        delay: Math.round(9500 * preMultiplier),
       },
       {
         prefix: '[QUEUE]',
@@ -626,14 +626,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'warning',
         cardWallet: t('allServersBusy'),
         cardKey: 'QUEUE WAIT #14',
-        delay: Math.round(3800 * preMultiplier),
+        delay: Math.round(10500 * preMultiplier),
       },
       {
         prefix: '[PING]',
         text: 'Cluster heartbeat probe: latency spike 184ms | Load: CRITICAL [BUSY]',
         statusText: '[BUSY]',
         statusType: 'warning',
-        delay: Math.round(3600 * preMultiplier),
+        delay: Math.round(10000 * preMultiplier),
       },
       {
         prefix: '[SOCKET]',
@@ -643,14 +643,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         cardWallet: t('connectionLost'),
         cardKey: 'DROPPED',
         beepFreq: 330,
-        delay: Math.round(4000 * preMultiplier),
+        delay: Math.round(11200 * preMultiplier),
       },
       {
         prefix: '[ERROR]',
         text: 'Socket closed by remote peer [ERR_SERVER_CONGESTION / TIMEOUT 4000ms]',
         statusText: '[TIMEOUT]',
         statusType: 'failed',
-        delay: Math.round(2400 * preMultiplier),
+        delay: Math.round(6800 * preMultiplier),
       },
       {
         prefix: '[RETRY]',
@@ -659,14 +659,14 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'warning',
         cardWallet: t('connectionLost'),
         cardKey: t('reconnecting'),
-        delay: Math.round(2800 * preMultiplier),
+        delay: Math.round(8200 * preMultiplier),
       },
       {
         prefix: '[SOCKET]',
         text: 'Attempt 1/3: Binding fallback IP 185.190.141.22:443... [SYN_ACK received]',
         statusText: '[SYN_ACK]',
         statusType: 'system',
-        delay: Math.round(3000 * preMultiplier),
+        delay: Math.round(8500 * preMultiplier),
       },
       {
         prefix: '[CLUSTER]',
@@ -676,7 +676,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         cardWallet: t('environmentInit') || 'ENVIRONMENT SETUP',
         cardKey: 'SOCKET LINKED',
         beepFreq: 740,
-        delay: Math.round(2600 * preMultiplier),
+        delay: Math.round(7400 * preMultiplier),
       },
       {
         prefix: '[SECP256K1]',
@@ -685,7 +685,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: t('environmentInit') || 'ENVIRONMENT SETUP',
         cardKey: 'SECP256K1 TABLES',
-        delay: Math.round(3200 * preMultiplier),
+        delay: Math.round(9000 * preMultiplier),
       },
       {
         prefix: '[BIP-39]',
@@ -694,7 +694,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: t('environmentInit') || 'ENVIRONMENT SETUP',
         cardKey: 'BIP-39 SEEDS',
-        delay: Math.round(3200 * preMultiplier),
+        delay: Math.round(9000 * preMultiplier),
       },
       {
         prefix: '[MEMORY]',
@@ -702,7 +702,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: t('environmentInit') || 'ENVIRONMENT SETUP',
         cardKey: 'BUFFERING HEAP',
-        delay: Math.round(2600 * preMultiplier),
+        delay: Math.round(7400 * preMultiplier),
       },
       {
         prefix: '[THREADS]',
@@ -711,7 +711,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: t('environmentInit') || 'ENVIRONMENT SETUP',
         cardKey: 'CALIBRATING CORES',
-        delay: Math.round(2400 * preMultiplier),
+        delay: Math.round(6800 * preMultiplier),
       },
       {
         prefix: '[STATUS]',
@@ -721,7 +721,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         cardWallet: 'ENVIRONMENT READY',
         cardKey: 'PIPELINE SYNC',
         beepFreq: 880,
-        delay: Math.round(2600 * preMultiplier),
+        delay: Math.round(7400 * preMultiplier),
       },
       {
         prefix: '[CMD]',
@@ -729,13 +729,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         statusType: 'system',
         cardWallet: 'ENVIRONMENT READY',
         cardKey: 'LAUNCHING...',
-        delay: Math.round(1800 * preMultiplier),
+        delay: Math.round(5200 * preMultiplier),
       },
       {
         prefix: '[EXEC]',
         text: `Spawning worker threads: commencing multi-core private key search on [${safeNetworks.join(', ')}]...`,
         statusType: 'system',
-        delay: Math.round(1400 * preMultiplier),
+        delay: Math.round(4000 * preMultiplier),
       },
     ];
 
@@ -767,15 +767,15 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     const T_PRE_EXTRACT = cumulativeDelay;
 
     const T_ACTIVE_STREAM = isCommunityPlan
-      ? Math.floor(26000 + Math.random() * 14000) // 26s - 40s
-      : Math.floor(12000 + Math.random() * 6000); // 12s - 18s
+      ? Math.floor(82000 + Math.random() * 42000) // 82s - 124s (~1.4m - ~2.1m)
+      : Math.floor(38000 + Math.random() * 20000); // 38s - 58s
 
     const targetRecords = isCommunityPlan
       ? Math.floor(620000 + Math.random() * 320000)
       : Math.floor(1600000 + Math.random() * 800000);
 
     const T_MATCH = T_PRE_EXTRACT + T_ACTIVE_STREAM;
-    const T_ANALYSIS = T_MATCH - 2800; // Approaching collision analysis (last 2.8s)
+    const T_ANALYSIS = T_MATCH - 8000; // Approaching collision analysis (last 8.0s)
 
     let isAnalysisTriggered = false;
     let streamCongestionLogged = false;
@@ -784,7 +784,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     let lastBeepTime = 0;
     let lastLogTime = 0;
     let reachedScan = false;
-    let candidateIdx = 0;
 
     // Master Monotonic Ticker (tuned to 220ms: blazingly fast, eliminates layout thrashing & GC churn)
     scanIntervalRef.current = window.setInterval(() => {
@@ -814,9 +813,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             setScanState('SCANNING');
             playSimulatedBeep(520, 0.12);
 
-            const firstCand = CANDIDATE_POOL[0];
-            setWalletFoundDisplay(firstCand.addr);
-            setPrivateKeyDisplay(firstCand.key);
+            const initialAddr = generateDerivedAddress(safeNetworks[0] || 'TRON', true);
+            setWalletFoundDisplay(initialAddr);
+            setPrivateKeyDisplay(`0x${randomHex(4)}••••${randomHex(4)}`);
           }
 
           // Mid-stream temporary congestion bump (at ~45% into active stream)
@@ -839,7 +838,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 2.8s)
+          // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 8.0s)
           if (elapsed >= T_ANALYSIS && !isAnalysisTriggered) {
             isAnalysisTriggered = true;
             setWalletFoundDisplay(t('analyzing'));
@@ -865,25 +864,21 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           );
           setRecordsScanned(dynamicRecords);
 
-          // Live rotate candidate address and key from pre-allocated pool
-          if (!isAnalysisTriggered) {
-            const cand = CANDIDATE_POOL[candidateIdx % CANDIDATE_POOL.length];
-            candidateIdx++;
-            setWalletFoundDisplay(cand.addr);
-            setPrivateKeyDisplay(cand.key);
-          }
-
-          // Subtle click sound (every ~1.2s)
-          if (now - lastBeepTime > 1200) {
-            lastBeepTime = now;
-            playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.03);
-          }
-
-          // Throttle candidate log emissions to ~380ms to keep DOM lean
-          if (now - lastLogTime >= 380) {
+          // Candidate log emission and card update throttled to ~1050ms (authentic chain node query)
+          if (now - lastLogTime >= 1050) {
             lastLogTime = now;
             const randomLog = generateRandomScanLog(safeNetworks);
             setLogs((prev) => [...prev.slice(-14), randomLog]);
+
+            // Subtle click sound for each address queried
+            playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.03);
+
+            // Synchronously update card to display the address currently undergoing evaluation
+            if (!isAnalysisTriggered) {
+              setWalletFoundDisplay(randomLog.text);
+              const privMasked = `0x${randomHex(4)}••••${randomHex(4)}`;
+              setPrivateKeyDisplay(privMasked);
+            }
           }
           return;
         }
