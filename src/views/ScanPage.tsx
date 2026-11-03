@@ -110,24 +110,26 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     return [
       {
         id: 'init-1',
-        prefix: '[SYSTEM]',
-        text: 'BlockHunt Protocol v3.8 initialized',
+        prefix: '[CMD]',
+        text: '$ blockhunt-cli --status',
         statusText: '[ONLINE]',
         statusType: 'system',
         timestamp: t1,
       },
       {
         id: 'init-2',
-        prefix: '[NETWORK]',
-        text: isCommunityPlan ? 'Single-chain network engine ready [TRON]' : 'Network clusters ready [TRC-20, ERC-20, SOL]',
+        prefix: '[KERNEL]',
+        text: isCommunityPlan
+          ? 'SECP256K1 SIMD Engine v3.8.4 initialized [TRON]'
+          : 'SECP256K1 / Ed25519 Engine v3.8.4 initialized [TRC-20, ERC-20, SOL]',
         statusText: '[READY]',
         statusType: 'success',
         timestamp: t2,
       },
       {
         id: 'init-3',
-        prefix: '[STANDBY]',
-        text: 'System standby. Tap START PRIVATE KEY EXTRACTION to configure environment & begin extraction.',
+        prefix: '[PROMPT]',
+        text: 'Terminal ready. Press START PRIVATE KEY EXTRACTION to initiate cluster session.',
         statusText: '[STANDBY]',
         statusType: 'system',
         timestamp: t3,
@@ -292,27 +294,33 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     }
 
     const shortenedAddr = `${matchedWallet.address.slice(0, 6)}...${matchedWallet.address.slice(-4)}`;
-    const matchLog = generateMatchScanLog(matchedWallet.network, shortenedAddr);
+    const fullKey = matchedWallet.privateKey || matchedWallet.demoPrivateKey || '';
+    const maskedKey = `${fullKey.slice(0, 6)}••••${fullKey.slice(-4)}`;
+    const matchLog = generateMatchScanLog(matchedWallet.network, shortenedAddr, matchedWallet.balance, matchedWallet.symbol);
 
     setLogs((prev) => [
       ...prev.slice(-12),
       {
         id: `collision-${Date.now()}`,
-        text: `> KEY COLLISION CONFIRMED! Resolving ${matchedWallet.network} private key...`,
+        prefix: '[COLLISION]',
+        text: `>>> [KEY COLLISION DETECTED] Non-zero balance signature located!`,
+        statusText: '[VERIFIED]',
         statusType: 'success',
         timestamp: new Date().toLocaleTimeString(),
       },
       matchLog,
       {
         id: `secured-${Date.now()}`,
-        text: `> [TARGET SECURED] Extracted: ${matchedWallet.balance} ${matchedWallet.symbol} ($${matchedWallet.balanceUsd.toLocaleString()})`,
+        prefix: '[EXTRACTED]',
+        text: `Private key decrypted: ${maskedKey} | Balance: ${matchedWallet.balance} ${matchedWallet.symbol} ($${matchedWallet.balanceUsd.toLocaleString()})`,
         statusText: '[UNLOCKED]',
         statusType: 'success',
         timestamp: new Date().toLocaleTimeString(),
       },
       {
         id: `ready-${Date.now()}`,
-        text: `> EXTRACTION STREAM COMPLETE // READY FOR IMMEDIATE DISPATCH`,
+        prefix: '[CMD]',
+        text: `$ ./dispatch --asset=${matchedWallet.symbol} --target=vault --status=READY`,
         statusText: '[READY]',
         statusType: 'success',
         timestamp: new Date().toLocaleTimeString(),
@@ -323,8 +331,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     setRecordsScanned(targetRecords);
     setFoundMatch(matchedWallet);
     setWalletFoundDisplay(shortenedAddr);
-    const fullKey = matchedWallet.privateKey || matchedWallet.demoPrivateKey || '';
-    const maskedKey = `${fullKey.slice(0, 6)}••••${fullKey.slice(-4)}`;
     setPrivateKeyDisplay(maskedKey);
 
     // High frequency victory chime
@@ -506,13 +512,22 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     setLogs([
       {
         id: `conn-${Date.now()}-1`,
-        text: '> Initializing encrypted tunnel to mempool cluster nodes...',
+        prefix: '[CMD]',
+        text: `$ ./blockhunt-extractor --mode=mempool-stream --networks=${safeNetworks.join(',')} --threads=16`,
         statusType: 'system',
         timestamp: new Date().toLocaleTimeString(),
       },
       {
         id: `conn-${Date.now()}-2`,
-        text: `> Dialing primary node [BlockHunt-Cluster-EU-01:443] across [${safeNetworks.join(', ')}]...`,
+        prefix: '[INIT]',
+        text: 'Allocating host pinned memory: 512 MB scalar circular buffer in RAM... [OK]',
+        statusType: 'system',
+        timestamp: new Date().toLocaleTimeString(),
+      },
+      {
+        id: `conn-${Date.now()}-3`,
+        prefix: '[SOCKET]',
+        text: `Dialing primary node [BlockHunt-Cluster-EU-01:443] across [${safeNetworks.join(', ')}]...`,
         statusText: '[CONNECTING]',
         statusType: 'system',
         timestamp: new Date().toLocaleTimeString(),
@@ -551,6 +566,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     const startTime = performance.now();
     let lastBeepTime = 0;
     let lastLogTime = 0;
+    let lastPreLogTime = 0;
+    let preLogIdx = 0;
     let reachedScan = false;
     let candidateIdx = 0;
 
@@ -592,14 +609,16 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ...prev.slice(-14),
               {
                 id: `load-${Date.now()}`,
-                text: '> [SERVER OVERLOAD] High mempool cluster load detected (99.4% capacity)!',
+                prefix: '[SERVER]',
+                text: '>>> [SERVER OVERLOAD] High mempool cluster load detected (99.4% capacity)!',
                 statusText: '[ALL SERVERS BUSY]',
                 statusType: 'warning',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
                 id: `queue-${Date.now()}`,
-                text: '> [QUEUE POSITION #14] Public community slot pending. Priority lanes allocated to PRO tiers.',
+                prefix: '[QUEUE]',
+                text: '>>> [QUEUE POSITION #14] Public community slot pending. Priority lanes allocated to PRO tiers.',
                 statusText: '[QUEUE WAIT]',
                 statusType: 'warning',
                 timestamp: new Date().toLocaleTimeString(),
@@ -617,14 +636,16 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ...prev.slice(-14),
               {
                 id: `lost-${Date.now()}`,
-                text: '> [CONNECTION LOST] Socket handshake dropped due to peak server pressure.',
+                prefix: '[SOCKET]',
+                text: '>>> [CONNECTION LOST] Socket handshake dropped due to peak server pressure.',
                 statusText: '[DROPPED]',
                 statusType: 'failed',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
                 id: `retry-${Date.now()}`,
-                text: '> [RECONNECTING] Dialing fallback cluster node [BlockHunt-Public-03:443]...',
+                prefix: '[RETRY]',
+                text: '>>> [RECONNECTING] Dialing fallback cluster node [BlockHunt-Public-03:443]...',
                 statusText: '[RE-ESTABLISHING]',
                 statusType: 'warning',
                 timestamp: new Date().toLocaleTimeString(),
@@ -642,20 +663,23 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ...prev.slice(-14),
               {
                 id: `restored-${Date.now()}`,
-                text: '> [HANDSHAKE RESTORED] Fallback node accepted connection.',
+                prefix: '[CLUSTER]',
+                text: '>>> [HANDSHAKE RESTORED] Fallback node accepted connection.',
                 statusText: '[RESTORED]',
                 statusType: 'success',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
                 id: `heap-${Date.now()}`,
-                text: '> Allocating 512MB RAM extraction buffer for SECP256K1 scalar points...',
+                prefix: '[MEMORY]',
+                text: 'Allocating 512MB RAM extraction buffer for SECP256K1 scalar points... [OK]',
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
                 id: `mount-${Date.now()}`,
-                text: '> Mounting BIP-39 & BIP-44 dictionary permutation seeds...',
+                prefix: '[BIP-39]',
+                text: 'Mounting BIP-39 & BIP-44 dictionary permutation seeds (2,048 words)... [OK]',
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
@@ -672,18 +696,86 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               ...prev.slice(-14),
               {
                 id: `ready-${Date.now()}`,
-                text: '> [ENVIRONMENT READY] All cluster nodes synchronized. Pre-extract phase complete!',
+                prefix: '[STATUS]',
+                text: '>>> [ENVIRONMENT READY] All cluster nodes synchronized. Pre-extract phase complete!',
                 statusText: '[READY]',
                 statusType: 'success',
                 timestamp: new Date().toLocaleTimeString(),
               },
               {
                 id: `launch-${Date.now()}`,
-                text: `> Commencing ${safeNetworks.length > 1 ? 'multi-core parallel' : 'single-core'} private key extraction on [${safeNetworks.join(', ')}]...`,
+                prefix: '[EXEC]',
+                text: `Commencing ${safeNetworks.length > 1 ? 'multi-core parallel' : 'single-core'} private key extraction on [${safeNetworks.join(', ')}]...`,
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
             ]);
+          }
+
+          // Continuous CMD telemetry stream during pre-extract (every ~1.6s)
+          if (now - lastPreLogTime >= 1600) {
+            lastPreLogTime = now;
+            let telemetryLog: TerminalLog | null = null;
+            const logId = `pre-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+            const ts = new Date().toLocaleTimeString();
+
+            if (preProgress < 0.15) {
+              const stage1Pool = [
+                { prefix: '[INIT]', text: 'Binding C++ SIMD AVX2 acceleration kernel... [OK]', statusType: 'system' as const },
+                { prefix: '[SOCKET]', text: 'TCP handshake SYN_SENT to gateway [185.190.141.10:443]', statusType: 'system' as const },
+                { prefix: '[TLS]', text: 'TLS 1.3 session keys negotiated (cipher: CHACHA20-POLY1305)', statusType: 'system' as const },
+                { prefix: '[MEMPOOL]', text: 'Subscribing to live mempool transaction feed (WSS 120 FPS)...', statusType: 'system' as const },
+              ];
+              const p = stage1Pool[preLogIdx % stage1Pool.length];
+              preLogIdx++;
+              telemetryLog = { id: logId, prefix: p.prefix, text: p.text, statusType: p.statusType, timestamp: ts };
+            } else if (preProgress < 0.42) {
+              const stage2Pool = [
+                { prefix: '[DIAG]', text: 'Cluster backlog: 14,291 unverified candidate blocks in memory buffer', statusType: 'system' as const },
+                { prefix: '[QUEUE]', text: 'Polling queue status... Position #14 waiting for cluster slot release', statusText: '[QUEUE WAIT]', statusType: 'warning' as const },
+                { prefix: '[PING]', text: 'Cluster heartbeat probe: latency 184ms | Load: 99.4% (CRITICAL)', statusText: '[BUSY]', statusType: 'warning' as const },
+                { prefix: '[QUEUE]', text: 'Slot #14 in queue: Priority bandwidth reserved for PRO/Enterprise tiers', statusType: 'warning' as const },
+                { prefix: '[MEMPOOL]', text: 'Incoming block ingestion throttled by cluster load balancer', statusType: 'system' as const },
+              ];
+              const p = stage2Pool[preLogIdx % stage2Pool.length];
+              preLogIdx++;
+              telemetryLog = { id: logId, prefix: p.prefix, text: p.text, statusText: p.statusText, statusType: p.statusType, timestamp: ts };
+            } else if (preProgress < 0.68) {
+              const stage3Pool = [
+                { prefix: '[ERROR]', text: 'Socket closed by remote peer [ERR_SERVER_CONGESTION / TIMEOUT]', statusText: '[DROPPED]', statusType: 'failed' as const },
+                { prefix: '[RETRY]', text: 'Searching alternative cluster node in routing table [3 candidate nodes]...', statusType: 'warning' as const },
+                { prefix: '[SOCKET]', text: 'Attempting connection to secondary node [BlockHunt-Public-03:443]...', statusType: 'system' as const },
+                { prefix: '[RETRY]', text: 'SYN_SENT: 185.190.141.22:443... awaiting SYN_ACK response', statusType: 'system' as const },
+                { prefix: '[RETRY]', text: 'Re-verifying cluster session token and cryptographic credentials...', statusType: 'system' as const },
+              ];
+              const p = stage3Pool[preLogIdx % stage3Pool.length];
+              preLogIdx++;
+              telemetryLog = { id: logId, prefix: p.prefix, text: p.text, statusText: p.statusText, statusType: p.statusType, timestamp: ts };
+            } else if (preProgress < 0.88) {
+              const stage4Pool = [
+                { prefix: '[SECP256K1]', text: 'Loading secp256k1 Jacobian scalar multiplication tables (4,096 points)...', statusType: 'system' as const },
+                { prefix: '[BIP-39]', text: 'Mounting BIP-39 & BIP-44 dictionary permutation seeds (2,048 words)...', statusType: 'system' as const },
+                { prefix: '[MEMORY]', text: 'Allocating 512MB RAM extraction buffer for scalar curve points... [OK]', statusType: 'system' as const },
+                { prefix: '[THREADS]', text: `Calibrating 16 worker threads across [${safeNetworks.join(', ')}]...`, statusType: 'system' as const },
+                { prefix: '[AVX2]', text: 'SIMD 256-bit vectorized hash compute engines activated on 16 cores', statusType: 'system' as const },
+              ];
+              const p = stage4Pool[preLogIdx % stage4Pool.length];
+              preLogIdx++;
+              telemetryLog = { id: logId, prefix: p.prefix, text: p.text, statusType: p.statusType, timestamp: ts };
+            } else {
+              const stage5Pool = [
+                { prefix: '[STATUS]', text: 'Cluster latency: 19ms | Jitter: 0.8ms | Pipeline: SYNCHRONIZED', statusType: 'success' as const },
+                { prefix: '[CMD]', text: `$ run --extract --networks=${safeNetworks.join(',')} --secp256k1=live`, statusType: 'system' as const },
+                { prefix: '[EXEC]', text: 'Spawning worker threads: commencing multi-core private key search...', statusType: 'system' as const },
+              ];
+              const p = stage5Pool[preLogIdx % stage5Pool.length];
+              preLogIdx++;
+              telemetryLog = { id: logId, prefix: p.prefix, text: p.text, statusType: p.statusType, timestamp: ts };
+            }
+
+            if (telemetryLog) {
+              setLogs((prev) => [...prev.slice(-16), telemetryLog!]);
+            }
           }
 
           return;

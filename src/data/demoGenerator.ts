@@ -130,46 +130,86 @@ function getNetworkTag(network: Network): string {
   }
 }
 
-// Real-time cryptographic scanner telemetry logs
+// Real-time cryptographic scanner telemetry logs (Authentic CMD / Console extraction stream)
 export function generateRandomScanLog(networks: Network[]): TerminalLog {
   const safe = Array.isArray(networks) && networks.length > 0 ? networks : (['TRON', 'ETHEREUM', 'SOLANA'] as Network[]);
   const chosenNetwork = safe[Math.floor(Math.random() * safe.length)];
   const addr = generateDerivedAddress(chosenNetwork, true);
-  const tag = getNetworkTag(chosenNetwork);
+  const coreNum = Math.floor(Math.random() * 8) + 1;
+  const privSnippet = `0x${randomHex(4)}...${randomHex(2)}`;
+  const netTag = chosenNetwork === 'TRON' ? 'TRC20' : chosenNetwork === 'ETHEREUM' ? 'ERC20' : 'SOL';
 
-  const outcomes: Array<{ text: string; type: 'nokey' | 'empty' | 'failed' | 'system' }> = [
-    { text: '[NO KEY]', type: 'nokey' },
-    { text: '[EMPTY BAL]', type: 'empty' },
-    { text: '[MISMATCH]', type: 'failed' },
-    { text: '[NO KEY]', type: 'nokey' },
-    { text: '[DIVERGED]', type: 'failed' },
-    { text: '[DORMANT]', type: 'empty' },
-    { text: '[MISMATCH]', type: 'failed' },
-    { text: '[BIP44 OK]', type: 'system' },
-    { text: '[NULL BAL]', type: 'empty' },
-    { text: '[SECP OK]', type: 'system' },
+  const logVariants = [
+    {
+      prefix: `core-0${coreNum}`,
+      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
+      statusText: '[NO KEY]',
+      statusType: 'nokey',
+    },
+    {
+      prefix: `core-0${coreNum}`,
+      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
+      statusText: '[EMPTY BAL]',
+      statusType: 'empty',
+    },
+    {
+      prefix: 'BIP44',
+      text: `m/44'/${chosenNetwork === 'TRON' ? '195' : chosenNetwork === 'ETHEREUM' ? '60' : '501'}'/0'/0/${Math.floor(Math.random() * 500)} → ${addr}`,
+      statusText: '[MISMATCH]',
+      statusType: 'failed',
+    },
+    {
+      prefix: 'SECP',
+      text: `scalar P=k*G mod n | ${addr}`,
+      statusText: '[NO MATCH]',
+      statusType: 'nokey',
+    },
+    {
+      prefix: 'MEMPOOL',
+      text: `blk #${Math.floor(Math.random() * 5000 + 19482000)} | verify ${addr}`,
+      statusText: '[0.00 BAL]',
+      statusType: 'empty',
+    },
+    {
+      prefix: `core-0${coreNum}`,
+      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
+      statusText: '[DORMANT]',
+      statusType: 'empty',
+    },
+    {
+      prefix: 'BLOOM',
+      text: `target index probe → ${addr}`,
+      statusText: '[NEGATIVE]',
+      statusType: 'failed',
+    },
+    {
+      prefix: `core-0${coreNum}`,
+      text: `priv: ${privSnippet} | ${netTag}: ${addr}`,
+      statusText: '[NO KEY]',
+      statusType: 'nokey',
+    },
   ];
 
-  const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+  const picked = logVariants[Math.floor(Math.random() * logVariants.length)];
 
   return {
     id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-    prefix: tag,
-    text: addr,
-    statusText: outcome.text,
-    statusType: outcome.type,
+    prefix: picked.prefix,
+    text: picked.text,
+    statusText: picked.statusText,
+    statusType: picked.statusType,
     timestamp: new Date().toLocaleTimeString(),
   };
 }
 
 // Collision match log
-export function generateMatchScanLog(network: Network, address: string): TerminalLog {
+export function generateMatchScanLog(network: Network, address: string, balance?: string, symbol?: string): TerminalLog {
   const tag = getNetworkTag(network);
   return {
     id: `log-${Date.now()}-match`,
-    prefix: tag,
-    text: address,
-    statusText: '[KEY LOCATED]',
+    prefix: 'MATCH',
+    text: `>>> [COLLISION DETECTED] ${tag} ${address} | BAL: ${balance || 'ACTIVE'} ${symbol || 'USDT'}`,
+    statusText: '[COLLISION VERIFIED]',
     statusType: 'match',
     timestamp: new Date().toLocaleTimeString(),
   };
