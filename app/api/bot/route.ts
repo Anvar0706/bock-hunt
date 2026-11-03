@@ -19,5 +19,5 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  return new Response('BlockHunt Telegram Bot Webhook Active', { status: 200 });
+  return new Response('Webhook service active', { status: 200 });
 }

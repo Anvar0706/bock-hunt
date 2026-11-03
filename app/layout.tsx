@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'BlockHunt Protocol v3.8 - Cryptographic Security Scanner',
-  description: 'Advanced high-performance cryptographic security scanner for TRON, Ethereum, and Solana mempools.',
+  title: 'Gateway',
+  description: 'Client Verification Gateway',
 };
 
 export const viewport: Viewport = {

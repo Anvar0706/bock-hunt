@@ -20,7 +20,13 @@ export async function POST(req: Request) {
     }
 
     // Input sanitization & bounds check
-    const cleanTgId = String(tgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+
+    // Enforce authentic Telegram user ID (Telegram IDs are purely numeric, 5 to 16 digits)
+    if (!/^\d{5,16}$/.test(cleanTgId)) {
+      return NextResponse.json({ ok: false, error: 'Access restricted: Valid Telegram user ID required.' }, { status: 403 });
+    }
+
     const cleanName = String(name || 'User').slice(0, 64);
     const cleanUsername = String(username || '').slice(0, 64);
     const cleanLang = lang === 'ru' ? 'ru' : 'en';
@@ -53,7 +59,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
     }
 
-    const cleanTgId = String(tgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    if (!/^\d{5,16}$/.test(cleanTgId)) {
+      return NextResponse.json({ ok: false, error: 'Access restricted: Valid Telegram user ID required.' }, { status: 403 });
+    }
+
     const user = await getUser(cleanTgId);
     return NextResponse.json({ ok: true, user });
   } catch (err: any) {

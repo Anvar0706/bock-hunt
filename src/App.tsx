@@ -18,6 +18,7 @@ import { LicensingModal } from './components/LicensingModal';
 import { AdminModal } from './components/AdminModal';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ProtocolGatekeeper } from './components/ProtocolGatekeeper';
+import { RestrictedWebGate } from './components/RestrictedWebGate';
 import { AppTourGuide } from './components/AppTourGuide';
 import { ScanPage } from './views/ScanPage';
 import { ActivityPage } from './views/ActivityPage';
@@ -60,39 +61,22 @@ function MainApp() {
   const [userStatus, setUserStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
   const [currentTgUser, setCurrentTgUser] = useState<{ id: string; name: string; username: string } | null>(null);
 
+  // Telegram Session & Web Restriction Gate
+  const [isVerifyingTelegram, setIsVerifyingTelegram] = useState(true);
+  const [isWebRestricted, setIsWebRestricted] = useState(false);
+
+  // Synchronize document title to 403 Forbidden when web access outside Telegram is detected
+  useEffect(() => {
+    if (isWebRestricted) {
+      document.title = '403 Forbidden';
+    }
+  }, [isWebRestricted]);
+
   // Database Uplink Gatekeeper Status: Main menu waits until connection is verified
   const [dbConnectionStatus, setDbConnectionStatus] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('CONNECTING');
   const [handshakeStep, setHandshakeStep] = useState<1 | 2 | 3>(1);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCountdown, setRetryCountdown] = useState(5);
-
-  // Sync live pricing settings, users, and admin addresses from backend API
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    fetch('/api/pricing-settings', { signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.ok && data.settings) {
-          setPricingSettings(data.settings);
-        }
-      })
-      .catch(() => {});
-
-    fetch('/api/admin-addresses', { signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.ok && data.addresses) {
-          setAdminAddresses(data.addresses);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      controller.abort();
-    };
-  }, []);
 
   // Persistent data in localStorage
   const [scans, setScans] = useLocalStorage<ExtractionScan[]>('shark_scans', INITIAL_SCANS);
@@ -247,7 +231,7 @@ function MainApp() {
           await new Promise((r) => setTimeout(r, 100));
         }
 
-        // Browser fallback if outside Telegram
+        // Browser check outside Telegram
         if (!user?.id) {
           const isDevEnvironment =
             typeof window !== 'undefined' &&
@@ -265,27 +249,26 @@ function MainApp() {
               setAdminModalOpen(true);
             }
           } else {
-            // Production Web Guest Operative
-            let storedGuestId = '';
-            try {
-              storedGuestId = localStorage.getItem('blockhunt_guest_id') || '';
-              if (!storedGuestId) {
-                storedGuestId = `guest_${Math.random().toString(36).substring(2, 10)}`;
-                localStorage.setItem('blockhunt_guest_id', storedGuestId);
-              }
-            } catch {
-              storedGuestId = `guest_${Date.now().toString(36)}`;
-            }
-            const guestUser = { id: storedGuestId, name: 'Web Operative', username: '' };
-            user = guestUser;
-            setCurrentTgUser(guestUser);
-            currentTgUserRef.current = guestUser;
-            setIsAdmin(false);
+            // Direct web browser access outside Telegram is strictly prohibited
+            setIsVerifyingTelegram(false);
+            setIsWebRestricted(true);
+            setDbConnectionStatus('DISCONNECTED');
+            isHandshakingRef.current = false;
+            return;
           }
         }
       }
 
-      const activeUser = user || { id: 'guest_fallback', name: 'Web Operative', username: '' };
+      setIsVerifyingTelegram(false);
+      setIsWebRestricted(false);
+
+      if (!user?.id) {
+        setIsWebRestricted(true);
+        isHandshakingRef.current = false;
+        return;
+      }
+
+      const activeUser = user;
 
       // Step 2: Establish connection to secure protocol cluster and synchronize operative profile
       setHandshakeStep(2);
@@ -420,9 +403,9 @@ function MainApp() {
     performProtocolHandshake();
   }, [performProtocolHandshake]);
 
-  // Auto-retry countdown when disconnected
+  // Auto-retry countdown when disconnected (never auto-retry for blocked web clients)
   useEffect(() => {
-    if (dbConnectionStatus !== 'DISCONNECTED') return;
+    if (dbConnectionStatus !== 'DISCONNECTED' || isWebRestricted) return;
 
     setRetryCountdown(5);
     const interval = setInterval(() => {
@@ -750,6 +733,20 @@ function MainApp() {
       syncWithBackend();
     }, 250);
   };
+
+  // 1. Direct Web Browser Access Blocked: Completely block access and leak zero Block Hunt info
+  if (isWebRestricted) {
+    return <RestrictedWebGate />;
+  }
+
+  // 2. Initial Telegram session verification: Neutral dark spinner, no Block Hunt UI or text
+  if (isVerifyingTelegram) {
+    return (
+      <div className="min-h-screen bg-[#07080C] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // Database Gatekeeper: If database is disconnected, DO NOT open main menu!
   if (dbConnectionStatus !== 'CONNECTED') {
