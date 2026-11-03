@@ -24,12 +24,14 @@ export const RestrictedWebGate: React.FC = () => {
           Access Restricted
         </h1>
 
-        <p className="text-xs text-zinc-400 leading-relaxed mb-3 max-w-xs">
+        {/* English (Default) */}
+        <p className="text-xs text-zinc-400 leading-relaxed mb-2 max-w-xs">
           Direct web browser access is disabled. This service is exclusively accessible through the official Telegram client application.
         </p>
 
+        {/* Russian (Secondary) */}
         <p className="text-[11px] text-zinc-500 leading-relaxed mb-6 max-w-xs font-mono">
-          Ushbu xizmatga veb-brauzer orqali kirish taqiqlangan. Ilovadan faqat rasmiy Telegram ilovasi orqali foydalanish mumkin.
+          Прямой доступ через браузер ограничен. Приложение доступно исключительно через официальный клиент Telegram.
         </p>
 
         {/* Action Button */}
