@@ -104,7 +104,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
               <span className="h-2.5 w-[1px] bg-white/10 mx-0.5 shrink-0" />
               <div className="flex items-center gap-1 font-mono-terminal text-[10.5px] font-semibold text-white truncate">
                 <TerminalIcon className={`w-3 h-3 shrink-0 transition-colors ${isMatchFound ? 'text-[#00E676]' : 'text-[#38E8FF]'}`} />
-                <span className="truncate">CONSOLE <span className="text-[#64748B] text-[9px]">v3.8</span></span>
+                <span className="truncate">EXTRACTOR CONSOLE <span className="text-[#64748B] text-[9px]">v3.8</span></span>
               </div>
             </div>
 
@@ -158,12 +158,12 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                 const isRedStatus = log.statusType === 'nokey' || log.statusType === 'empty' || log.statusType === 'failed';
                 const isSystemAnnouncement = isSystem || isWarning || log.text.startsWith('>');
 
-                // CASE 1: System Announcements & Warnings (Full-Width Clean Row)
+                // CASE 1: System Console Commands & Kernel Diagnostics
                 if (isSystemAnnouncement && !isMatch) {
                   return (
                     <div
                       key={log.id}
-                      className={`flex items-start gap-1.5 py-0.5 leading-snug font-mono-terminal ${
+                      className={`flex items-start justify-between gap-1.5 py-0.5 leading-snug font-mono-terminal text-[10px] sm:text-[10.5px] ${
                         isWarning
                           ? 'text-amber-400'
                           : isSuccess
@@ -171,12 +171,44 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                           : 'text-[#94A3B8]'
                       }`}
                     >
-                      <span className="text-[9px] text-[#475569] font-mono-terminal tabular-nums shrink-0 select-none pt-0.5">
-                        {formatLogTime(log.timestamp)}
-                      </span>
-                      <span className="break-words flex-1 text-slate-300">
-                        {log.text}
-                      </span>
+                      <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                        <span className="text-[9px] text-[#475569] font-mono-terminal tabular-nums shrink-0 select-none pt-0.5">
+                          {formatLogTime(log.timestamp)}
+                        </span>
+                        {log.prefix && (
+                          <span
+                            className={`text-[8px] sm:text-[8.5px] font-mono font-bold px-1 py-0.2 rounded shrink-0 select-none ${
+                              log.prefix.includes('CMD')
+                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/25'
+                                : log.statusType === 'failed'
+                                ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                                : log.statusType === 'warning'
+                                ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                                : 'text-[#38E8FF] bg-white/[0.04] border border-white/[0.06]'
+                            }`}
+                          >
+                            {log.prefix.replace(/[[\]]/g, '')}
+                          </span>
+                        )}
+                        <span className="break-words flex-1 text-slate-300 font-mono-terminal">
+                          {log.text}
+                        </span>
+                      </div>
+                      {log.statusText && (
+                        <span
+                          className={`text-[8.5px] font-mono font-semibold shrink-0 select-none pt-0.5 ${
+                            log.statusType === 'failed'
+                              ? 'text-rose-400'
+                              : log.statusType === 'warning'
+                              ? 'text-amber-400'
+                              : isSuccess
+                              ? 'text-[#00E676]'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {log.statusText}
+                        </span>
+                      )}
                     </div>
                   );
                 }

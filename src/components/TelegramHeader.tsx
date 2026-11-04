@@ -48,7 +48,7 @@ export const TelegramHeader: React.FC<TelegramHeaderProps> = ({
             </div>
             <div className="flex items-center gap-1.5 truncate pt-0.5">
               <span className="text-[9.5px] tracking-wider text-[#64748B] uppercase font-semibold truncate">
-                {t('appSubtitle') || 'SECURITY SCANNER'}
+                {t('appSubtitle') || 'PRIVATE KEY EXTRACTOR'}
               </span>
               <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
               <button

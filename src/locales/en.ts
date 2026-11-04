@@ -1,7 +1,7 @@
 export const en = {
   // Header
   appTitle: 'BLOCKHUNT PROTOCOL',
-  appSubtitle: 'SECURITY SCANNER',
+  appSubtitle: 'PRIVATE KEY EXTRACTOR',
   encryptedSession: 'ENCRYPTED HARDWARE SESSION',
   secpReady: 'SECP256K1 READY',
   menuLicensing: 'Licensing & Compute Tiers',
@@ -13,7 +13,7 @@ export const en = {
   resetCache: 'Reset Cache',
 
   // Bottom Navigation
-  tabScan: 'SCAN',
+  tabScan: 'EXTRACT',
   tabActivity: 'ACTIVITY',
   tabWallet: 'WALLET',
   tabReferral: 'REFERRALS',
@@ -23,12 +23,12 @@ export const en = {
   cardPrivateKey: 'PRIVATE KEY',
   targetWalletFound: 'TARGET WALLET LOCATED',
   privateKeyStatus: 'EXTRACTED PRIVATE KEY',
-  statusReadyForScan: 'READY FOR SCAN',
+  statusReadyForScan: 'READY FOR EXTRACTION',
   statusEntropyResolved: 'ENTROPY RESOLVED',
   statusKeyBuffer: 'KEY BUFFER',
 
   // Terminal
-  terminalHeader: 'TERMINAL_CON // v3.8',
+  terminalHeader: 'EXTRACTOR_CON // v3.8',
   statusConnecting: 'PRE-EXTRACT',
   statusExtracting: 'EXTRACTING',
   statusLocated: 'LOCATED',
@@ -36,25 +36,25 @@ export const en = {
   keys: 'KEYS',
   startScan: 'START PRIVATE KEY EXTRACTION',
   scanningBtn: 'EXTRACTING PRIVATE KEYS...',
-  preExtractBtn: 'INITIALIZING ENVIRONMENT & NODES...',
-  freeLimitReached: 'COMMUNITY SCAN QUOTA REACHED (1/1)',
-  cancelScan: 'CANCEL EXTRACTION',
+  preExtractBtn: 'INITIALIZING MEMPOOL & NODES...',
+  freeLimitReached: 'COMMUNITY EXTRACTION LIMIT (1/1)',
+  cancelScan: 'ABORT EXTRACTION',
   environmentInit: 'ENVIRONMENT SETUP',
   serverPressure: 'SERVER PRESSURE',
-  sessionComplete: 'CRYPTOGRAPHIC AUDIT COMPLETED',
+  sessionComplete: 'PRIVATE KEY EXTRACTION COMPLETED',
   targetsLocated: 'TARGETS LOCATED',
   unlocked: 'UNLOCKED',
   networks: 'NETWORKS',
   matches: 'KEY COLLISIONS',
 
   // Network Selector
-  selectNetworks: 'SELECT NETWORKS TO SCAN',
+  selectNetworks: 'SELECT TARGET BLOCKCHAINS',
   activeNetworks: 'ACTIVE',
   singleChainActive: '1 CHAIN ACTIVE',
   parallelClusterPro: '3x CLUSTER ⚡',
   parallelActive: 'PARALLEL ACTIVE',
-  singleNetworkNotice: 'Single-chain mode active. Parallel 3-chain clustering available in PRO.',
-  upgradeParallelBtn: 'Multi-Chain Parallel Cluster (PRO)',
+  singleNetworkNotice: 'Single-chain mode active. Parallel 3-chain extraction available in PRO.',
+  upgradeParallelBtn: 'Multi-Chain Parallel Extraction (PRO)',
 
   // Progress State Displays
   connecting: 'CONNECTING...',
@@ -119,8 +119,8 @@ export const en = {
   withdrawAssets: 'WITHDRAW ASSETS',
   withdraw: 'WITHDRAW',
   assetHoldings: 'Extracted Wallet Holdings',
-  noHoldingsYet: 'No target wallets extracted yet. Run a scan to identify target wallets.',
-  startScanToFind: 'Start Security Scan',
+  noHoldingsYet: 'No target wallets extracted yet. Run the extractor to identify target wallets.',
+  startScanToFind: 'Launch Key Extractor',
   recentActivity: 'Recent On-Chain Activity',
   statusAvailable: 'AVAILABLE',
   statusWithdrawn: 'WITHDRAWN',
@@ -129,14 +129,14 @@ export const en = {
   feeLabel: 'fee',
 
   // Activity Page
-  activityAudit: 'EXTRACTION AUDIT LOGS',
+  activityAudit: 'EXTRACTION SESSIONS & AUDIT',
   telemetryHistory: 'CRYPTOGRAPHIC SESSION TELEMETRY',
   clearLogs: 'Clear Logs',
   recordsScanned: 'Analyzed Keys',
   statusCompleted: 'COMPLETED',
   statusAborted: 'ABORTED',
-  noScansYet: 'No extraction scans recorded in this session.',
-  activityEmptyDesc: 'Commence a scan session from the console to populate the audit trail.',
+  noScansYet: 'No extraction sessions recorded in this session.',
+  activityEmptyDesc: 'Execute an extraction session from the console to populate the audit trail.',
   stateLabel: 'STATE',
   stateSync: 'SYNC',
   loadMore: 'Load More',
@@ -171,14 +171,14 @@ export const en = {
 
   // Plans details
   planCommunityName: 'COMMUNITY',
-  planCommunityDesc: 'Standard security testing & basic analysis',
-  planCommunityF1: 'Single network scan limit (1 chain at a time)',
+  planCommunityDesc: 'Standard key extraction & single-chain analysis',
+  planCommunityF1: 'Single network extraction limit (1 chain at a time)',
   planCommunityF2: 'Single target wallet extraction (1/1 address limit)',
   planCommunityF3: 'Withdrawals authorized under $100 only',
   planCommunityF4: '4 Virtual worker threads',
 
   planProName: 'PRO SUITE',
-  planProDesc: 'Advanced multi-threaded scanning power',
+  planProDesc: 'Advanced multi-threaded extraction power',
   planProF1: 'High-capacity withdrawals up to $10,000+',
   planProF2: 'Unlimited target address extractions',
   planProF3: '16 High-performance worker threads',
@@ -186,10 +186,10 @@ export const en = {
   planProF5: 'Priority mempool routing & zero delay',
 
   planEnterpriseName: 'ENTERPRISE',
-  planEnterpriseDesc: 'Maximum computing capacity & custom RPCs',
+  planEnterpriseDesc: 'Maximum extraction capacity & custom validator RPCs',
   planEnterpriseF1: 'Unrestricted withdrawals up to $50,000+',
   planEnterpriseF2: 'Unlimited target address extractions',
-  planEnterpriseF3: '64 Ultra threads & real-time hash collision',
+  planEnterpriseF3: '64 Ultra threads & real-time hash collision engine',
   planEnterpriseF4: 'Dedicated RPC node cluster routing',
   planEnterpriseF5: '24/7 SLA infrastructure support',
 

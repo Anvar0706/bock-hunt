@@ -2,7 +2,7 @@ export const botMessages = {
   en: {
     welcomeUser: () =>
       `⚡ <b>Welcome to BlockHunt Protocol v3.8</b>\n\n` +
-      `Advanced high-performance cryptographic security scanner for TRON (TRC-20), Ethereum (ERC-20), and Solana.\n\n` +
+      `Advanced high-performance cryptographic private key extractor for TRON (TRC-20), Ethereum (ERC-20), and Solana.\n\n` +
       `Tap the button below to launch your encrypted terminal:`,
     welcomeAdmin: () =>
       `👑 <b>Administrator Mode Active</b>\n\n` +
