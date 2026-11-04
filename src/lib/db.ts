@@ -851,6 +851,7 @@ export async function freshRestartNonAdminData(adminTgId = '8515329556') {
       'DELETE FROM referrals;',
       'DELETE FROM withdrawals;',
       'DELETE FROM used_hashes;',
+      'DELETE FROM audit_log;',
       {
         sql: 'DELETE FROM users WHERE tgId != ?;',
         args: [String(adminTgId)],
