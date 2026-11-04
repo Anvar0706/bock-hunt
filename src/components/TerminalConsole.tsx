@@ -213,16 +213,9 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                           </span>
                           <span className="text-white font-bold text-[10px]">KEY COLLISION VERIFIED</span>
                         </div>
-                        {matchedWallet && onTransfer && (
-                          <button
-                            onClick={() => onTransfer(matchedWallet)}
-                            type="button"
-                            className="px-2 py-0.5 rounded-md bg-[#00E676] hover:bg-[#00C853] text-black font-extrabold text-[9px] uppercase tracking-wider shrink-0 cursor-pointer active:scale-95 transition-all flex items-center gap-1"
-                          >
-                            <Sparkles className="w-2.5 h-2.5 text-black" />
-                            <span>{t('withdraw')}</span>
-                          </button>
-                        )}
+                        <span className="text-[8.5px] font-mono font-bold text-[#00E676] px-1.5 py-0.5 rounded bg-[#00E676]/15 border border-[#00E676]/30 shrink-0 select-none">
+                          MATCH_CONFIRMED
+                        </span>
                       </div>
                       <div className="text-[10px] text-[#00E676] font-mono break-all font-semibold">
                         {log.text}

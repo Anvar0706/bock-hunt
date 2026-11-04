@@ -11,7 +11,7 @@ import { generateRandomScanLog, generateMatchScanLog, generateRandomMatchedWalle
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getEffectiveProPrice } from '../data/adminSettings';
-import { CheckCircle2, AlertTriangle, Crown, X, Sparkles } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Crown, X, Sparkles, Send } from 'lucide-react';
 
 interface ScanPageProps {
   onScanCompleted: (scan: ExtractionScan) => void;
@@ -790,26 +790,43 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
     const T_PRE_EXTRACT = cumulativeDelay;
 
+    // Base active stream duration (+150% increase across all plans)
     const T_ACTIVE_STREAM = isCommunityPlan
-      ? Math.floor(82000 + Math.random() * 42000) // 82s - 124s (~1.4m - ~2.1m)
-      : Math.floor(38000 + Math.random() * 20000); // 38s - 58s
+      ? Math.floor(205000 + Math.random() * 105000) // 205s - 310s (~3.4m - ~5.1m)
+      : Math.floor(95000 + Math.random() * 50000);  // 95s - 145s (~1.6m - ~2.4m)
 
     const targetRecords = isCommunityPlan
-      ? Math.floor(620000 + Math.random() * 320000)
-      : Math.floor(1600000 + Math.random() * 800000);
+      ? Math.floor(1550000 + Math.random() * 850000)
+      : Math.floor(3900000 + Math.random() * 1900000);
 
-    const T_MATCH = T_PRE_EXTRACT + T_ACTIVE_STREAM;
-    const T_ANALYSIS = T_MATCH - 8000; // Approaching collision analysis (last 8.0s)
+    // Dynamic community network perturbation / reconnect tracking
+    // Any time spent in a disconnect / retry state is 100% EXCLUDED from the active stream
+    // and ADDED to the final key collision resolution target time.
+    let totalGlitchDelay = 0;
+    let isGlitchActive = false;
+
+    // Glitch 1: Peer socket reset & TLS renegotiation (at ~30% active stream)
+    let glitch1Triggered = false;
+    let glitch1Phase = 0;
+    let glitch1StartTime = 0;
+    const glitch1Duration = isCommunityPlan ? Math.floor(18000 + Math.random() * 5000) : 0; // 18s - 23s
+
+    // Glitch 2: Community rate-limit threshold & token bucket backoff (at ~68% active stream)
+    let glitch2Triggered = false;
+    let glitch2Phase = 0;
+    let glitch2StartTime = 0;
+    const glitch2Duration = isCommunityPlan ? Math.floor(14000 + Math.random() * 4000) : 0; // 14s - 18s
 
     let isAnalysisTriggered = false;
     let streamCongestionLogged = false;
 
     const startTime = performance.now();
+    let lastTickTime = performance.now();
     let lastBeepTime = 0;
     let lastLogTime = 0;
     let reachedScan = false;
 
-    // Master Monotonic Ticker (tuned to 220ms: blazingly fast, eliminates layout thrashing & GC churn)
+    // Master Monotonic Ticker (tuned to 65ms: smooth candidate stream, layout-friendly)
     scanIntervalRef.current = window.setInterval(() => {
       if (sessionTokenRef.current !== currentSession) {
         if (scanIntervalRef.current) {
@@ -821,33 +838,225 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
       try {
         const now = performance.now();
-        const elapsed = now - startTime;
+        const delta = now - lastTickTime;
+        lastTickTime = now;
+
+        const totalElapsed = now - startTime;
 
         // Waiting for pre-extract steps to finish
-        if (elapsed < T_PRE_EXTRACT) {
+        if (totalElapsed < T_PRE_EXTRACT) {
           return;
         }
 
         // ========================================================
-        // 2. ACTIVE EXTRACTION STREAM PHASE (T_PRE_EXTRACT <= elapsed < T_MATCH)
+        // 2. ACTIVE EXTRACTION STREAM PHASE
         // ========================================================
-        if (elapsed >= T_PRE_EXTRACT && elapsed < T_MATCH) {
-          if (!reachedScan) {
-            reachedScan = true;
-            setScanState('SCANNING');
-            playSimulatedBeep(520, 0.12);
+        if (!reachedScan) {
+          reachedScan = true;
+          setScanState('SCANNING');
+          playSimulatedBeep(520, 0.12);
 
-            const initialAddr = generateDerivedAddress(safeNetworks[0] || 'TRON', true);
-            setWalletFoundDisplay(initialAddr);
-            setPrivateKeyDisplay(`0x${randomHex(4)}••••${randomHex(4)}`);
+          const initialAddr = generateDerivedAddress(safeNetworks[0] || 'TRON', true);
+          setWalletFoundDisplay(initialAddr);
+          setPrivateKeyDisplay(`0x${randomHex(4)}••••${randomHex(4)}`);
+        }
+
+        // --- GLITCH MANAGEMENT (COMMUNITY PLAN) ---
+        // If a glitch is currently active, accrue time into totalGlitchDelay
+        if (isGlitchActive) {
+          totalGlitchDelay += delta;
+        }
+
+        // Net progress calculation (EXCLUDES all reconnect / glitch duration)
+        const effectiveStreamElapsed = Math.max(0, (totalElapsed - T_PRE_EXTRACT) - totalGlitchDelay);
+        const streamProgress = Math.min(1.0, Math.max(0.0, effectiveStreamElapsed / T_ACTIVE_STREAM));
+
+        // Dynamic collision deadline: T_PRE_EXTRACT + T_ACTIVE_STREAM + totalGlitchDelay
+        const dynamicTMatch = T_PRE_EXTRACT + T_ACTIVE_STREAM + totalGlitchDelay;
+        const dynamicTAnalysis = dynamicTMatch - 8000;
+
+        // --- CHECK GLITCH 1 TRIGGER (at ~30% progress for Community) ---
+        if (isCommunityPlan && streamProgress >= 0.30 && !glitch1Triggered) {
+          glitch1Triggered = true;
+          isGlitchActive = true;
+          glitch1StartTime = now;
+          glitch1Phase = 1;
+
+          playSimulatedBeep(330, 0.15);
+          setWalletFoundDisplay(t('connectionLost'));
+          setPrivateKeyDisplay('PEER RESET (10054)');
+
+          setLogs((prev) => [
+            ...prev.slice(-14),
+            {
+              id: `sock-drop-${Date.now()}`,
+              prefix: '[net/sock]',
+              text: `recv(fd:4, 8192) = -1 ECONNRESET (peer connection closed by remote gateway ${primaryIp})`,
+              statusType: 'failed',
+              timestamp: new Date().toLocaleTimeString(),
+            },
+            {
+              id: `retry-init-${Date.now() + 1}`,
+              prefix: '[cluster/warn]',
+              text: `Mempool ingress socket severed. Initiating graceful fallback renegotiation...`,
+              statusType: 'warning',
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        }
+
+        // Progress Glitch 1 sub-phases
+        if (glitch1Triggered && glitch1Phase > 0 && glitch1Phase < 99) {
+          const g1Elapsed = now - glitch1StartTime;
+          if (glitch1Phase === 1 && g1Elapsed >= 4500) {
+            glitch1Phase = 2;
+            setWalletFoundDisplay('RESOLVING RELAY PEER');
+            setPrivateKeyDisplay(`relay-${fallbackNodeTag}.blockhunt.net`);
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g1-dns-${Date.now()}`,
+                prefix: '[net/dns]',
+                text: `getaddrinfo("relay-${fallbackNodeTag}.blockhunt.net") -> ${fallbackIp}:${fallbackPort}`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          } else if (glitch1Phase === 2 && g1Elapsed >= 9500) {
+            glitch1Phase = 3;
+            setWalletFoundDisplay('RE-NEGOTIATING TLS');
+            setPrivateKeyDisplay('CHACHA20-POLY1305');
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g1-tls-${Date.now()}`,
+                prefix: '[net/tls]',
+                text: `SSL_connect(fd:5): handshaking wss://${fallbackIp}:${fallbackPort}...`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          } else if (glitch1Phase === 3 && g1Elapsed >= 14000) {
+            glitch1Phase = 4;
+            setWalletFoundDisplay('SYNCHRONIZING EPOCH');
+            setPrivateKeyDisplay('RESTORED 0ms');
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g1-sync-${Date.now()}`,
+                prefix: '[net/sock]',
+                text: `connect(fd:5) -> 0 [SYN_ACK received, session restored]`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          } else if (g1Elapsed >= glitch1Duration) {
+            // Glitch 1 Completed!
+            glitch1Phase = 99;
+            isGlitchActive = false;
+            playSimulatedBeep(740, 0.1);
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g1-done-${Date.now()}`,
+                prefix: '[cluster/flow]',
+                text: `Ingress channel restored (peer: ${fallbackIp}). Extraction pipeline resumed.`,
+                statusType: 'success',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
           }
+        }
 
-          // Mid-stream temporary congestion bump (at ~45% into active stream)
-          const streamElapsed = elapsed - T_PRE_EXTRACT;
-          const streamDuration = T_MATCH - T_PRE_EXTRACT;
-          const streamProgress = Math.min(1.0, Math.max(0.0, streamElapsed / streamDuration));
+        // --- CHECK GLITCH 2 TRIGGER (at ~68% progress for Community) ---
+        if (isCommunityPlan && streamProgress >= 0.68 && !glitch2Triggered && glitch1Phase === 99) {
+          glitch2Triggered = true;
+          isGlitchActive = true;
+          glitch2StartTime = now;
+          glitch2Phase = 1;
 
-          if (streamProgress >= 0.45 && streamProgress < 0.58 && !streamCongestionLogged) {
+          playSimulatedBeep(440, 0.12);
+          setWalletFoundDisplay('INGRESS THROTTLED');
+          setPrivateKeyDisplay('RATE LIMIT (429)');
+
+          setLogs((prev) => [
+            ...prev.slice(-14),
+            {
+              id: `rate-limit-${Date.now()}`,
+              prefix: '[cluster/rate]',
+              text: `HTTP/2 429 Too Many Requests: community ingress rate exceeded (queue depth > 4000)`,
+              statusType: 'warning',
+              timestamp: new Date().toLocaleTimeString(),
+            },
+            {
+              id: `rate-backoff-${Date.now() + 1}`,
+              prefix: '[engine/throttle]',
+              text: `Extraction threads suspended: token bucket cooling in progress (holding ring buffer)...`,
+              statusType: 'warning',
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        }
+
+        // Progress Glitch 2 sub-phases
+        if (glitch2Triggered && glitch2Phase > 0 && glitch2Phase < 99) {
+          const g2Elapsed = now - glitch2StartTime;
+          if (glitch2Phase === 1 && g2Elapsed >= 5000) {
+            glitch2Phase = 2;
+            setWalletFoundDisplay('COOLING THREAD POOL');
+            setPrivateKeyDisplay('BUCKET REFILL: 600/1000');
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g2-refill-${Date.now()}`,
+                prefix: '[sched/th]',
+                text: `worker_threads: 16 cores idling in ring buffer to prevent cluster sanction`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          } else if (glitch2Phase === 2 && g2Elapsed >= 9500) {
+            glitch2Phase = 3;
+            setWalletFoundDisplay('REFILL COMPLETE');
+            setPrivateKeyDisplay('UNPARKING THREADS');
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g2-unpark-${Date.now()}`,
+                prefix: '[engine/eval]',
+                text: `Token bucket restored (1000/1000 tokens). Resuming concurrent mempool stream.`,
+                statusType: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          } else if (g2Elapsed >= glitch2Duration) {
+            // Glitch 2 Completed!
+            glitch2Phase = 99;
+            isGlitchActive = false;
+            playSimulatedBeep(780, 0.1);
+            setLogs((prev) => [
+              ...prev.slice(-15),
+              {
+                id: `g2-done-${Date.now()}`,
+                prefix: '[cluster/flow]',
+                text: `Pipeline unthrottled. Full-speed candidate extraction resumed.`,
+                statusType: 'success',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          }
+        }
+
+        // --- WHILE GLITCH IS ACTIVE ---
+        // Suppress candidate address generation and record increments
+        if (isGlitchActive) {
+          return;
+        }
+
+        // --- ACTIVE SCAN STREAMING ---
+        if (effectiveStreamElapsed < T_ACTIVE_STREAM) {
+          // Mid-stream temporary congestion bump (at ~48% into active stream)
+          if (streamProgress >= 0.48 && streamProgress < 0.58 && !streamCongestionLogged) {
             streamCongestionLogged = true;
             playSimulatedBeep(480, 0.1);
             setLogs((prev) => [
@@ -862,8 +1071,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             ]);
           }
 
-          // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 8.0s)
-          if (elapsed >= T_ANALYSIS && !isAnalysisTriggered) {
+          // SUB-PHASE: APPROACHING MATCH ANALYSIS (FINAL 8.0s before dynamic match)
+          if (totalElapsed >= dynamicTAnalysis && !isAnalysisTriggered) {
             isAnalysisTriggered = true;
             setWalletFoundDisplay('COLLISION DETECTED');
             setPrivateKeyDisplay('RESOLVING SCALAR...');
@@ -881,7 +1090,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           }
 
           // Dynamic records counter (monotonically ascending during active stream)
-          const jitter = Math.sin(streamElapsed / 220) * 110;
+          const jitter = Math.sin(effectiveStreamElapsed / 220) * 110;
           const dynamicRecords = Math.min(
             targetRecords,
             Math.max(150, Math.floor(streamProgress * targetRecords + jitter))
@@ -910,8 +1119,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           return;
         }
 
-        // PHASE 3: MATCH / TARGET SECURED (>= T_MATCH)
-        if (elapsed >= T_MATCH) {
+        // PHASE 3: MATCH / TARGET SECURED (>= dynamicTMatch / effectiveStreamElapsed >= T_ACTIVE_STREAM)
+        if (effectiveStreamElapsed >= T_ACTIVE_STREAM) {
           if (scanIntervalRef.current) {
             clearInterval(scanIntervalRef.current);
             scanIntervalRef.current = null;
@@ -932,7 +1141,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         }
         triggerMatchEvent(currentSession, safeNetworks, targetRecords);
       }
-    }, T_MATCH + 500);
+    }, T_PRE_EXTRACT + T_ACTIVE_STREAM + glitch1Duration + glitch2Duration + 25000);
   };
 
   // Cancel the scan immediately with 100% timer shutdown & session invalidation
@@ -1069,8 +1278,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               type="button"
               className="w-full py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2.5 relative overflow-hidden font-bold tracking-wider text-xs uppercase bg-[#00E676] hover:bg-[#00C853] text-black shadow-[0_4px_16px_rgba(0,230,118,0.25)] active:scale-98 transition-all cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-black" />
-              <span>{t('withdrawAssets')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
+              <Send className="w-4 h-4 text-black" />
+              <span>{t('initiateTransfer')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
             </button>
 
             <button

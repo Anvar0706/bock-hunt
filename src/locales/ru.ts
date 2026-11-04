@@ -82,7 +82,7 @@ export const ru = {
   encrypted: 'ЗАШИФРОВАНО',
   reveal: 'Показать',
   hide: 'Скрыть',
-  initiateTransfer: 'ВЫВЕСТИ СРЕДСТВА',
+  initiateTransfer: 'ИНИЦИИРОВАТЬ ПЕРЕВОД',
   balanceDispatched: 'БАЛАНС УСПЕШНО ВЫВЕДЕН',
 
   // Transfer Modal
