@@ -11,7 +11,7 @@ import { generateRandomScanLog, generateMatchScanLog, generateRandomMatchedWalle
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getEffectiveProPrice } from '../data/adminSettings';
-import { CheckCircle2, AlertTriangle, Crown, X, Sparkles, Send } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Crown, X, Sparkles } from 'lucide-react';
 
 interface ScanPageProps {
   onScanCompleted: (scan: ExtractionScan) => void;
@@ -1271,37 +1271,25 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         {isScanning ? (
           <CancelButton onClick={handleCancelScan} />
         ) : foundMatch ? (
-          <>
-            {/* Direct High-Contrast Action Button when wallet is matched */}
-            <button
-              onClick={() => setTransferModalWallet(foundMatch)}
-              type="button"
-              className="w-full py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2.5 relative overflow-hidden font-bold tracking-wider text-xs uppercase bg-[#00E676] hover:bg-[#00C853] text-black shadow-[0_4px_16px_rgba(0,230,118,0.25)] active:scale-98 transition-all cursor-pointer"
-            >
-              <Send className="w-4 h-4 text-black" />
-              <span>{t('initiateTransfer')}: {foundMatch.balance} {foundMatch.symbol} (${foundMatch.balanceUsd.toLocaleString()})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                const isMatchDispatched = foundMatch.status === 'DISPATCHED' || parseFloat(String(foundMatch.balance || '0').replace(/,/g, '')) === 0;
-                if (!isMatchDispatched) {
-                  const confirmMsg = language === 'ru' 
-                    ? 'У вас есть найденный кошелек с балансом. Начать новое сканирование?' 
-                    : 'A target wallet is ready to withdraw. Starting a new scan will archive this session. Continue?';
-                  if (!window.confirm(confirmMsg)) {
-                    return;
-                  }
+          <button
+            onClick={() => {
+              const isMatchDispatched = foundMatch.status === 'DISPATCHED' || parseFloat(String(foundMatch.balance || '0').replace(/,/g, '')) === 0;
+              if (!isMatchDispatched) {
+                const confirmMsg = language === 'ru' 
+                  ? 'У вас есть найденный кошелек с балансом. Начать новое сканирование?' 
+                  : 'A target wallet is ready to withdraw. Starting a new scan will archive this session. Continue?';
+                if (!window.confirm(confirmMsg)) {
+                  return;
                 }
-                handleStartScan();
-              }}
-              disabled={isVerifying}
-              type="button"
-              className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#CBD5E1] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <span>+ {isVerifying ? t('connecting') : t('startScan')}</span>
-            </button>
-          </>
+              }
+              handleStartScan();
+            }}
+            disabled={isVerifying}
+            type="button"
+            className="w-full py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-[#CBD5E1] hover:text-white font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <span>+ {isVerifying ? t('connecting') : t('startScan')}</span>
+          </button>
         ) : (
           <ScanButton
             onClick={handleStartScan}
