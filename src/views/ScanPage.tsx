@@ -888,14 +888,17 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           );
           setRecordsScanned(dynamicRecords);
 
-          // Candidate log emission and card update throttled to ~1050ms (authentic chain node query)
-          if (now - lastLogTime >= 1050) {
+          // Candidate log emission and card update (8x accelerated stream: ~130ms)
+          if (now - lastLogTime >= 130) {
             lastLogTime = now;
             const randomLog = generateRandomScanLog(safeNetworks);
-            setLogs((prev) => [...prev.slice(-14), randomLog]);
+            setLogs((prev) => [...prev.slice(-16), randomLog]);
 
-            // Subtle click sound for each address queried
-            playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.03);
+            // High-frequency subtle audio click feedback
+            if (now - lastBeepTime >= 280) {
+              lastBeepTime = now;
+              playSimulatedBeep(1100 + Math.floor(Math.random() * 150), 0.025);
+            }
 
             // Synchronously update card to display the address currently undergoing evaluation
             if (!isAnalysisTriggered) {
@@ -918,7 +921,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       } catch (err) {
         console.error('[BlockHunt] Monotonic scan loop error:', err);
       }
-    }, 220);
+    }, 65);
 
     // Hard fail-safe watchdog timer
     scheduleTimeout(() => {
