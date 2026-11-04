@@ -158,12 +158,12 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                 const isRedStatus = log.statusType === 'nokey' || log.statusType === 'empty' || log.statusType === 'failed';
                 const isSystemAnnouncement = isSystem || isWarning || log.text.startsWith('>');
 
-                // CASE 1: System Console Commands & Kernel Diagnostics
+                // CASE 1: System Console Commands & Kernel Diagnostics (Expanded Clean Full-Row)
                 if (isSystemAnnouncement && !isMatch) {
                   return (
                     <div
                       key={log.id}
-                      className={`flex items-start justify-between gap-1.5 py-0.5 leading-snug font-mono-terminal text-[10px] sm:text-[10.5px] ${
+                      className={`flex items-start gap-1.5 py-0.5 leading-snug font-mono-terminal text-[11px] sm:text-[11.5px] ${
                         isWarning
                           ? 'text-amber-400'
                           : isSuccess
@@ -171,44 +171,27 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = React.memo(({
                           : 'text-[#94A3B8]'
                       }`}
                     >
-                      <div className="flex items-start gap-1.5 min-w-0 flex-1">
-                        <span className="text-[9px] text-[#475569] font-mono-terminal tabular-nums shrink-0 select-none pt-0.5">
-                          {formatLogTime(log.timestamp)}
-                        </span>
-                        {log.prefix && (
-                          <span
-                            className={`text-[8px] sm:text-[8.5px] font-mono font-bold px-1 py-0.2 rounded shrink-0 select-none ${
-                              log.prefix.includes('CMD')
-                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/25'
-                                : log.statusType === 'failed'
-                                ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
-                                : log.statusType === 'warning'
-                                ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-                                : 'text-[#38E8FF] bg-white/[0.04] border border-white/[0.06]'
-                            }`}
-                          >
-                            {log.prefix.replace(/[[\]]/g, '')}
-                          </span>
-                        )}
-                        <span className="break-words flex-1 text-slate-300 font-mono-terminal">
-                          {log.text}
-                        </span>
-                      </div>
-                      {log.statusText && (
+                      <span className="text-[9.5px] text-[#475569] font-mono-terminal tabular-nums shrink-0 select-none pt-0.5">
+                        {formatLogTime(log.timestamp)}
+                      </span>
+                      {log.prefix && (
                         <span
-                          className={`text-[8.5px] font-mono font-semibold shrink-0 select-none pt-0.5 ${
-                            log.statusType === 'failed'
-                              ? 'text-rose-400'
+                          className={`text-[8.5px] sm:text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 select-none ${
+                            log.prefix.includes('CMD')
+                              ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/25'
+                              : log.statusType === 'failed'
+                              ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
                               : log.statusType === 'warning'
-                              ? 'text-amber-400'
-                              : isSuccess
-                              ? 'text-[#00E676]'
-                              : 'text-slate-400'
+                              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                              : 'text-[#38E8FF] bg-white/[0.04] border border-white/[0.06]'
                           }`}
                         >
-                          {log.statusText}
+                          {log.prefix.replace(/[[\]]/g, '')}
                         </span>
                       )}
+                      <span className="break-words flex-1 text-slate-200 font-mono-terminal text-[11px] sm:text-[11.5px]">
+                        {log.text}
+                      </span>
                     </div>
                   );
                 }

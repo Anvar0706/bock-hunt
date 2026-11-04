@@ -309,7 +309,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         id: `collision-${Date.now()}`,
         prefix: '[COLLISION]',
         text: `>>> [KEY COLLISION DETECTED] match_found(hash=0x${randomHex(8)}, block=#${Math.floor(Math.random() * 5000 + 19482900)}, bal_sig=TRUE)`,
-        statusText: '[VERIFIED]',
         statusType: 'success',
         timestamp: new Date().toLocaleTimeString(),
       },
@@ -326,7 +325,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           id: `curve-${Date.now()}`,
           prefix: '[CURVE]',
           text: `secp256k1_point_mul(G, priv_scalar) -> P(x,y) matches addr [${shortenedAddr}]`,
-          statusText: '[DERIVED]',
           statusType: 'system',
           timestamp: new Date().toLocaleTimeString(),
         },
@@ -345,7 +343,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           id: `secured-${Date.now()}`,
           prefix: '[EXTRACT]',
           text: `aes256_decrypt(payload) -> privkey: ${maskedKey} | BAL: ${matchedWallet.balance} ${matchedWallet.symbol} ($${matchedWallet.balanceUsd.toLocaleString()})`,
-          statusText: '[UNLOCKED]',
           statusType: 'success',
           timestamp: new Date().toLocaleTimeString(),
         },
@@ -361,7 +358,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           id: `ready-${Date.now()}`,
           prefix: '[CMD]',
           text: `$ ./vault-dispatch --target=vault --asset=${matchedWallet.symbol} --amount=${matchedWallet.balance} --status=READY`,
-          statusText: '[READY]',
           statusType: 'success',
           timestamp: new Date().toLocaleTimeString(),
         },
@@ -559,6 +555,39 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
     ]);
 
+    // Authentic dynamic public node IP generator (randomized per extraction session)
+    const subnets = [
+      [142, 132], [65, 108], [168, 119], [95, 217],
+      [198, 244], [135, 181], [51, 89], [188, 165],
+      [144, 76], [88, 99], [46, 4], [178, 62]
+    ];
+    const s1 = subnets[Math.floor(Math.random() * subnets.length)];
+    const primaryIp = `${s1[0]}.${s1[1]}.${Math.floor(Math.random() * 253 + 1)}.${Math.floor(Math.random() * 253 + 1)}`;
+    const s2 = subnets[Math.floor(Math.random() * subnets.length)];
+    const fallbackIp = `${s2[0]}.${s2[1]}.${Math.floor(Math.random() * 253 + 1)}.${Math.floor(Math.random() * 253 + 1)}`;
+    const primaryPort = 443;
+    const fallbackPort = 443;
+    const fallbackNodeTag = `public-0${Math.floor(Math.random() * 6 + 1)}`;
+
+    // Dynamic queue position:
+    // Community: random 2 to 15
+    // PRO: random 0 to 1 (priority instant lane)
+    const queuePos = isCommunityPlan
+      ? Math.floor(Math.random() * 14) + 2
+      : (Math.random() > 0.5 ? 1 : 0);
+
+    // Dynamic queue factor: scales queue waiting time dynamically
+    // If queue is 2 -> queueFactor is ~0.48 (extraction starts much faster)
+    // If queue is 14 -> queueFactor is ~1.25 (extraction waits realistically longer)
+    const queueFactor = isCommunityPlan
+      ? 0.35 + (queuePos / 14) * 0.9
+      : 0.25;
+
+    const baseBacklog = (Math.floor(Math.random() * 12000) + 8500).toLocaleString();
+    const dynamicBlockHeight = Math.floor(Math.random() * 20000) + 19481000;
+    const pingRtt = (Math.random() * 40 + 155).toFixed(1);
+    const tlsRtt = (Math.random() * 14 + 20).toFixed(1);
+
     // Master Extractor Timeline Engine
     // Each step represents a genuine OS / network / cryptographic operation with an authentic delay
     const preMultiplier = isCommunityPlan ? 1.0 : 0.35;
@@ -566,7 +595,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     const preSteps: Array<{
       prefix: string;
       text: string;
-      statusText?: string;
       statusType: 'system' | 'warning' | 'failed' | 'success';
       cardWallet?: string;
       cardKey?: string;
@@ -576,21 +604,18 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[sys/init]',
         text: 'dlopen("libsecp256k1_avx2.so", RTLD_NOW) = 0x7fa8100 [AVX2|BMI2|CLMUL]',
-        statusText: '[OK]',
         statusType: 'system',
         delay: Math.round(2500 * preMultiplier),
       },
       {
         prefix: '[mem/mmap]',
         text: 'mmap(NULL, 536870912, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0) = 0x7fa2b000',
-        statusText: '[512 MB]',
         statusType: 'system',
         delay: Math.round(3800 * preMultiplier),
       },
       {
         prefix: '[net/sock]',
-        text: `socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = fd:3 -> 185.190.141.10:443`,
-        statusText: '[SYN_SENT]',
+        text: `socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = fd:3 -> ${primaryIp}:${primaryPort}`,
         statusType: 'system',
         cardWallet: 'DIALING GATEWAY',
         cardKey: 'SYN_SENT (fd:3)',
@@ -598,15 +623,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
       {
         prefix: '[net/tls]',
-        text: 'SSL_connect(fd:3): TLSv1.3 cipher=CHACHA20-POLY1305_SHA256 (rtt=28.4ms)',
-        statusText: '[SECURE]',
+        text: `SSL_connect(fd:3): TLSv1.3 cipher=CHACHA20-POLY1305_SHA256 (rtt=${tlsRtt}ms)`,
         statusType: 'system',
         delay: Math.round(6200 * preMultiplier),
       },
       {
         prefix: '[srv/rpc]',
         text: 'POST /v3/mempool/feed HTTP/1.1 -> 503 Service Unavailable [SERVER_OVERLOAD_99%]',
-        statusText: '[ALL SERVERS BUSY]',
         statusType: 'warning',
         cardWallet: t('allServersBusy'),
         cardKey: 'PEAK LOAD 99%',
@@ -615,41 +638,40 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
       {
         prefix: '[rt/queue]',
-        text: 'slot_acquire(tenant="community", prio=0) -> WAIT_QUEUE (queue_pos: #14)',
-        statusText: '[QUEUE WAIT]',
+        text: queuePos > 0
+          ? `slot_acquire(tenant="${isCommunityPlan ? 'community' : 'pro'}", prio=${isCommunityPlan ? 0 : 2}) -> WAIT_QUEUE (queue_pos: #${queuePos})`
+          : 'slot_acquire(tenant="pro", prio=2) -> VIP_FASTPATH (queue_bypass=TRUE)',
         statusType: 'warning',
         cardWallet: t('allServersBusy'),
-        cardKey: 'QUEUE WAIT #14',
+        cardKey: queuePos > 0 ? `QUEUE WAIT #${queuePos}` : 'VIP FASTPATH',
         beepFreq: 440,
-        delay: Math.round(8000 * preMultiplier),
+        delay: Math.round(8000 * preMultiplier * queueFactor),
       },
       {
         prefix: '[rt/diag]',
-        text: 'buffer_backlog: 14,291 unverified candidate blocks in ring buffer',
-        statusText: '[BACKLOG]',
+        text: `buffer_backlog: ${baseBacklog} unverified candidate blocks in ring buffer`,
         statusType: 'system',
-        delay: Math.round(9500 * preMultiplier),
+        delay: Math.round(9500 * preMultiplier * queueFactor),
       },
       {
         prefix: '[rt/queue]',
-        text: 'queue_poll(fd:3, timeout=15000ms): slot #14 waiting cluster thread release',
-        statusText: '[WAITING]',
+        text: queuePos > 0
+          ? `queue_poll(fd:3, timeout=15000ms): slot #${queuePos} waiting cluster thread release`
+          : 'queue_poll(fd:3): priority slot granted immediately',
         statusType: 'warning',
         cardWallet: t('allServersBusy'),
-        cardKey: 'QUEUE WAIT #14',
-        delay: Math.round(10500 * preMultiplier),
+        cardKey: queuePos > 0 ? `QUEUE WAIT #${queuePos}` : 'SLOT GRANTED',
+        delay: Math.round(10500 * preMultiplier * queueFactor),
       },
       {
         prefix: '[rt/ping]',
-        text: 'ICMP echo 185.190.141.10: rtt=184.2ms jitter=14.1ms loss=0.0% [PEAK LOAD]',
-        statusText: '[BUSY]',
+        text: `ICMP echo ${primaryIp}: rtt=${pingRtt}ms jitter=14.1ms loss=0.0% [PEAK LOAD]`,
         statusType: 'warning',
-        delay: Math.round(10000 * preMultiplier),
+        delay: Math.round(10000 * preMultiplier * queueFactor),
       },
       {
         prefix: '[net/sock]',
         text: 'read(fd:3, buf, 4096) = -1 ECONNRESET (Connection reset by peer)',
-        statusText: '[DROPPED]',
         statusType: 'failed',
         cardWallet: t('connectionLost'),
         cardKey: 'ECONNRESET',
@@ -659,14 +681,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[net/error]',
         text: 'ERR_SOCKET_TIMEOUT: remote peer closed connection during congestion spike',
-        statusText: '[TIMEOUT]',
         statusType: 'failed',
         delay: Math.round(6800 * preMultiplier),
       },
       {
         prefix: '[net/route]',
-        text: 'route_add(gw="185.190.141.22:443", metric=10, node="public-03")',
-        statusText: '[RECONNECTING]',
+        text: `route_add(gw="${fallbackIp}:${fallbackPort}", metric=10, node="${fallbackNodeTag}")`,
         statusType: 'warning',
         cardWallet: t('connectionLost'),
         cardKey: t('reconnecting'),
@@ -674,15 +694,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
       {
         prefix: '[net/sock]',
-        text: 'connect(fd:4, sockaddr_in="185.190.141.22:443") -> 0 [SYN_ACK received]',
-        statusText: '[SYN_ACK]',
+        text: `connect(fd:4, sockaddr_in="${fallbackIp}:${fallbackPort}") -> 0 [SYN_ACK received]`,
         statusType: 'system',
         delay: Math.round(8500 * preMultiplier),
       },
       {
         prefix: '[net/tls]',
         text: 'SSL_do_handshake(fd:4) = 1 (session restored, cipher=CHACHA20-POLY1305)',
-        statusText: '[RESTORED]',
         statusType: 'success',
         cardWallet: 'SOCKET LINKED',
         cardKey: 'FALLBACK RESTORED',
@@ -692,7 +710,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[secp256k1]',
         text: 'secp256k1_ecmult_gen_context_build(ctx=0x55d04, bits=4) ... 4096 pts loaded',
-        statusText: '[COMPUTED]',
         statusType: 'system',
         cardWallet: 'SECP256K1 TABLES',
         cardKey: 'JACOBIAN 4096 PTS',
@@ -701,7 +718,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[bip39/44]',
         text: 'bip39_load_wordlist("english.txt", words=2048, crc32=0x9B14E0A7) ... OK',
-        statusText: '[MOUNTED]',
         statusType: 'system',
         cardWallet: 'BIP-39 WORDLIST',
         cardKey: 'DICTIONARY 2048',
@@ -710,7 +726,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[mem/ring]',
         text: 'ring_buffer_create(capacity=524288, elem_size=64, numa_node=0) = 0x7fa94000',
-        statusText: '[ALLOCATED]',
         statusType: 'system',
         cardWallet: 'MEMORY BUFFER',
         cardKey: '512 MB PINNED RAM',
@@ -719,7 +734,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[sched/th]',
         text: `pthread_create(&workers[0..15], SCHED_FIFO, worker_fn, ctx) ... 16 cores assigned`,
-        statusText: '[16 CORES]',
         statusType: 'system',
         cardWallet: '16 THREAD CORES',
         cardKey: 'CALIBRATING AVX2',
@@ -727,8 +741,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
       {
         prefix: '[engine]',
-        text: 'pipeline_status: SYNCED (block_height=19482910, delta=0ms, latency=19ms)',
-        statusText: '[READY]',
+        text: `pipeline_status: SYNCED (block_height=${dynamicBlockHeight}, delta=0ms, latency=19ms)`,
         statusType: 'success',
         cardWallet: 'PIPELINE READY',
         cardKey: 'LATENCY 19ms',
@@ -738,7 +751,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       {
         prefix: '[CMD]',
         text: `$ ./worker-exec --dispatch-mode=zero-copy --filter-bloom=0x3F --secp-mod=P256`,
-        statusText: '[EXEC]',
         statusType: 'system',
         cardWallet: 'LAUNCHING EXECUTABLE',
         cardKey: 'ZERO-COPY BUFFER',
@@ -746,8 +758,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       },
       {
         prefix: '[engine]',
-        text: `mempool_stream_start(threads=16, networks=${safeNetworks.join(',')}, rpc="wss://")`,
-        statusText: '[RUNNING]',
+        text: `mempool_stream_start(threads=16, networks=${safeNetworks.join(',')}, rpc="wss://${primaryIp}")`,
         statusType: 'system',
         delay: Math.round(4000 * preMultiplier),
       },
@@ -770,7 +781,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             id: `step-${idx}-${Date.now()}`,
             prefix: step.prefix,
             text: step.text,
-            statusText: step.statusText,
             statusType: step.statusType,
             timestamp: new Date().toLocaleTimeString(),
           },
@@ -845,8 +855,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               {
                 id: `stream-busy-${Date.now()}`,
                 prefix: '[cluster/flow]',
-                text: 'mempool_tx_density_high(): throttling ingest pipeline (rate_limit: 1200/s)',
-                statusText: '[SERVER LOAD]',
+                text: `mempool_tx_density_high(): throttling ingest pipeline (rate_limit: ${Math.floor(Math.random() * 400 + 1000)}/s)`,
                 statusType: 'warning',
                 timestamp: new Date().toLocaleTimeString(),
               },
@@ -864,8 +873,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               {
                 id: `analysis-${Date.now()}`,
                 prefix: '[engine/eval]',
-                text: 'bloom_filter_hit(hash=0x194829a1) -> non-zero balance signature located in mempool!',
-                statusText: '[ANALYZING]',
+                text: `bloom_filter_hit(hash=0x${randomHex(8)}) -> non-zero balance signature located in mempool!`,
                 statusType: 'system',
                 timestamp: new Date().toLocaleTimeString(),
               },
