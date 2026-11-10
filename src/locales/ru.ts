@@ -168,12 +168,11 @@ export const ru = {
   communityCapExceeded: 'Превышен лимит тарифа Community',
   txErrorEmpty: 'Пожалуйста, введите хэш транзакции (TxID)!',
   txErrorInvalid: 'Неверный формат хэша транзакции для выбранной сети.',
-  autoListening: 'АВТО-ОЖИДАНИЕ В СЕТИ',
-  exactAmountNotice: 'Отправьте точную уникальную сумму ниже для мгновенной авто-активации:',
+  exactAmountNotice: 'Отправьте точную сумму, указанную ниже, для мгновенной активации:',
   checkNowBtn: 'Я ОПЛАТИЛ — ПРОВЕРИТЬ СЕЙЧАС',
   manualTxToggle: 'Или вставить TxID вручную',
   expiresIn: 'Действует',
-  creatingInvoice: 'Генерация уникального счёта...',
+  creatingInvoice: 'Создание счёта на оплату...',
 
   // Plans details
   planCommunityName: 'COMMUNITY',

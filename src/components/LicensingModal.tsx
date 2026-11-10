@@ -229,8 +229,8 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
           setVerificationLogs((prev) => [
             ...prev.slice(-3),
             language === 'ru'
-              ? '> Депозит ещё не обнаружен в подтверждённом блоке. Авто-ожидание продолжается...'
-              : '> Deposit not yet visible in a confirmed block. Auto-listening continues...',
+              ? '> Транзакция ещё не подтверждена в сети. Повторите проверку через несколько секунд.'
+              : '> Deposit not yet confirmed on-chain. Please wait a few seconds and check again.',
           ]);
         }
       } catch {
@@ -828,12 +828,11 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
                   const destAddr = getDepositAddress(paymentNetwork);
                   return (
                     <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-3">
-                      {/* Auto-Listening Status & Invoice Timer */}
+                      {/* Deposit Header & Invoice Timer */}
                       <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#00E676]/10 border border-[#00E676]/30 text-[9.5px] font-mono font-bold text-[#00E676]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
-                          <span>{t('autoListening')}</span>
-                        </div>
+                        <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                          {t('requiredDeposit')}
+                        </span>
                         {activeIntent && intentSecondsLeft > 0 && (
                           <div className="inline-flex items-center gap-1 text-[10px] font-mono text-[#94A3B8]">
                             <Clock className="w-3 h-3 text-[#38E8FF]" />
