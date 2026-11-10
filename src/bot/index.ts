@@ -23,7 +23,7 @@ import { botMessages, getBotMsg } from './messages';
 const BOT_TOKEN = (process.env.BOT_TOKEN || '').trim();
 const ACTIVE_BOT_TOKEN = BOT_TOKEN || '123456789:AA_DUMMY_BUILD_TOKEN_DO_NOT_USE';
 const ADMIN_ID = (process.env.ADMIN_USER_ID || process.env.ADMIN_TG_ID || '8515329556').trim();
-const WEB_APP_URL = (process.env.WEBAPP_URL || 'https://bock-hunt.vercel.app').trim();
+const WEB_APP_URL = (process.env.WEBAPP_URL || 'https://blockhunt-app.vercel.app').trim();
 
 export const bot = new Bot(ACTIVE_BOT_TOKEN, {
   client: {
