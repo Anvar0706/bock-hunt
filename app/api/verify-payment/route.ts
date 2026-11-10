@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyOnChainPayment } from '@/lib/blockchain';
-import { updateUser, getUser, creditReferralCommission, getReferralStats, logAudit } from '@/lib/db';
-import { notifyPaymentSuccess, notifyPaymentFailed, notifyAdmin, sendTelegramMessage } from '@/bot';
-import { getBotMsg } from '@/bot/messages';
+import { getUser, logAudit } from '@/lib/db';
+import { finalizeVerifiedPayment } from '@/lib/paymentActivation';
+import { notifyPaymentFailed } from '@/bot';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,7 @@ export async function POST(req: Request) {
       cycle = 'weekly',
       lang = 'en',
       tgId,
+      intentId,
       source = 'WEBAPP',
     } = body || {};
 
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
       billingCycle: effectiveCycle,
       lang,
       tgId: cleanTgId,
+      intentId: intentId ? String(intentId) : undefined,
     });
 
     if (!verification.ok) {
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
         error: verification.error,
         network,
         plan,
+        intentId: intentId || null,
         hash: String(txHash).slice(0, 80),
       }).catch(() => {});
 
@@ -78,82 +81,29 @@ export async function POST(req: Request) {
       return NextResponse.json(verification, { status: 400 });
     }
 
-    // Strict On-Chain verification confirmed!
-    await updateUser(cleanTgId, { plan });
-    await logAudit('PAYMENT_AUDIT', 'payment_verified', cleanTgId, {
-      plan,
-      cycle: effectiveCycle,
-      network,
-      amountUsd: verification.amountUsd,
-      deliveredUsd: verification.deliveredUsd,
-      hash: String(txHash).slice(0, 80),
-    }).catch(() => {});
-
-    const user = await getUser(cleanTgId);
-
-    // Check if user was referred by someone -> credit 50% commission
-    const commissionAmount = (Number(verification.amountUsd) || 0) * 0.5;
-    if (commissionAmount > 0) {
-      const commissionResult = await creditReferralCommission(cleanTgId, commissionAmount);
-      if (commissionResult) {
-        const referrerStats = await getReferralStats(commissionResult.referrerTgId);
-        const referrer = await getUser(commissionResult.referrerTgId);
-        const refLang = referrer?.lang || 'en';
-
-        // Notify Referrer
-        const refMsg = getBotMsg(refLang, 'referralBonus', {
-          buyerName: user?.name || 'Operative',
-          plan,
-          commissionUsd: commissionAmount,
-          balanceUsd: referrerStats.availableBalance,
-        });
-        sendTelegramMessage(commissionResult.referrerTgId, refMsg).catch(() => {});
-
-        // Alert Admin of referral commission
-        const adminRefAlert = getBotMsg('en', 'referralBonusAdminAlert', {
-          referrerId: commissionResult.referrerTgId,
-          buyerName: user?.name || 'Operative',
-          buyerId: cleanTgId,
-          plan,
-          commissionUsd: commissionAmount,
-        });
-        notifyAdmin(adminRefAlert).catch(() => {});
-      }
-    }
-
-    // Notify User
-    notifyPaymentSuccess(cleanTgId, {
-      plan,
-      cycle: effectiveCycle,
-      network,
-      amountUsd: verification.amountUsd,
+    await finalizeVerifiedPayment({
+      tgId: cleanTgId,
+      plan: verification.plan,
+      cycle: verification.cycle,
+      network: verification.network,
+      amountUsd: Number(verification.amountUsd),
+      deliveredUsd: Number(verification.deliveredUsd),
       symbol: verification.symbol,
-      hash: txHash,
-    }, lang).catch(() => {});
-
-    // Alert Admin
-    const adminAlert = getBotMsg('en', 'txAdminAlert', {
-      userName: user?.name || 'Operative',
-      userId: cleanTgId,
-      userUname: user?.username || 'none',
-      plan,
-      cycle: effectiveCycle,
-      network,
-      amountUsd: verification.amountUsd,
-      symbol: verification.symbol,
-      hash: txHash,
+      txHash: verification.hash,
+      intentId: verification.intentId,
+      lang,
       source,
     });
-    notifyAdmin(adminAlert).catch(() => {});
 
     return NextResponse.json({
       ok: true,
-      plan,
-      cycle: effectiveCycle,
-      network,
+      plan: verification.plan,
+      planId: verification.plan,
+      cycle: verification.cycle,
+      network: verification.network,
       amountUsd: verification.amountUsd,
       symbol: verification.symbol,
-      hash: txHash,
+      hash: verification.hash,
       logs: verification.logs,
     });
   } catch (err: any) {

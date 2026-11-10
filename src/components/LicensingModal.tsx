@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { AdminDepositAddresses, Network, PricingSettings } from '../types';
 import {
   X,
@@ -11,10 +11,28 @@ import {
   ShieldCheck,
   Search,
   AlertCircle,
+  RefreshCw,
+  Clock,
+  ChevronDown,
 } from 'lucide-react';
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { DEFAULT_ADMIN_DEPOSIT_ADDRESSES, DEFAULT_PRICING_SETTINGS } from '../data/adminSettings';
+
+interface PaymentIntentView {
+  id: string;
+  tgId: string;
+  plan: string;
+  cycle: string;
+  network: string;
+  depositAddress: string;
+  baseUsd: number;
+  expectedUsd: number;
+  expectedNative: number;
+  nativeSymbol: string;
+  stableSymbol: string;
+  expiresAt: number;
+}
 
 interface LicensingModalProps {
   isOpen: boolean;
@@ -53,8 +71,16 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   const [activatedSuccess, setActivatedSuccess] = useState<string | null>(null);
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<PlanItem | null>(null);
   const [paymentNetwork, setPaymentNetwork] = useState<Network>('TRON');
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<'addr' | 'native' | 'stable' | null>(null);
   const isVerifyingRef = useRef(false);
+  const isAutoCheckingRef = useRef(false);
+
+  // Unique Invoice & Auto-Detection State
+  const [activeIntent, setActiveIntent] = useState<PaymentIntentView | null>(null);
+  const [intentLoading, setIntentLoading] = useState(false);
+  const [intentSecondsLeft, setIntentSecondsLeft] = useState(0);
+  const [isAutoChecking, setIsAutoChecking] = useState(false);
+  const [showManualTx, setShowManualTx] = useState(false);
 
   // Sync prop changes
   useEffect(() => {
@@ -88,6 +114,153 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   const [isMatched, setIsMatched] = useState(false);
 
   const { prices: livePrices } = useLivePrices();
+
+  const getTelegramUserId = useCallback((): string | undefined => {
+    try {
+      const tg = (window as unknown as {
+        Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string } } } };
+      }).Telegram?.WebApp;
+      if (tg?.initDataUnsafe?.user?.id) {
+        return String(tg.initDataUnsafe.user.id);
+      }
+    } catch {}
+    return undefined;
+  }, []);
+
+  const applyConfirmedActivation = useCallback(
+    (finalPlan: string, hash?: string) => {
+      setIsMatched(true);
+      if (hash) {
+        setVerificationLogs((prev) => [
+          ...prev,
+          `> [MATCHED] Confirmed tx ${hash.slice(0, 12)}... on-chain!`,
+        ]);
+      }
+      try {
+        localStorage.setItem('shark_user_plan', finalPlan);
+      } catch {}
+
+      setTimeout(() => {
+        onSelectPlan(finalPlan);
+        setActivatedSuccess(finalPlan);
+        setSelectedPlanForPayment(null);
+        setActiveIntent(null);
+
+        setTimeout(() => {
+          setActivatedSuccess(null);
+          onClose();
+        }, 1500);
+      }, 1200);
+    },
+    [onSelectPlan, onClose]
+  );
+
+  // Create or reuse a unique micro-amount invoice whenever payment checkout opens/changes
+  useEffect(() => {
+    if (!isOpen || !selectedPlanForPayment || selectedPlanForPayment.id === 'community') {
+      setActiveIntent(null);
+      return;
+    }
+
+    const currentTgId = getTelegramUserId();
+    if (!currentTgId) {
+      setActiveIntent(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIntentLoading(true);
+    setVerificationError(null);
+
+    fetch('/api/payments/intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tgId: currentTgId,
+        plan: selectedPlanForPayment.id,
+        billingCycle,
+        network: paymentNetwork,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.ok && data.intent) {
+          setActiveIntent(data.intent);
+          setIntentSecondsLeft(Math.max(0, Math.floor((data.intent.expiresAt - Date.now()) / 1000)));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIntentLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, selectedPlanForPayment, paymentNetwork, billingCycle, getTelegramUserId]);
+
+  const checkIntentStatus = useCallback(
+    async (manualTrigger = false) => {
+      if (!activeIntent || isMatched || isAutoCheckingRef.current || isVerifyingRef.current) return;
+      isAutoCheckingRef.current = true;
+      if (manualTrigger) {
+        setIsAutoChecking(true);
+        setVerificationError(null);
+      }
+
+      try {
+        const res = await fetch('/api/payments/check-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intentId: activeIntent.id,
+            tgId: activeIntent.tgId,
+            lang: language,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data?.ok && data.status === 'COMPLETED') {
+          applyConfirmedActivation(data.plan || activeIntent.plan, data.txHash);
+          return;
+        }
+        if (manualTrigger) {
+          setVerificationLogs((prev) => [
+            ...prev.slice(-3),
+            language === 'ru'
+              ? '> Депозит ещё не обнаружен в подтверждённом блоке. Авто-ожидание продолжается...'
+              : '> Deposit not yet visible in a confirmed block. Auto-listening continues...',
+          ]);
+        }
+      } catch {
+        // Silent ignore for periodic background poll
+      } finally {
+        isAutoCheckingRef.current = false;
+        if (manualTrigger) setIsAutoChecking(false);
+      }
+    },
+    [activeIntent, isMatched, language, applyConfirmedActivation]
+  );
+
+  // Expiration countdown (1s) + Push/Cached Auto-Check Polling (every 12s while checkout visible)
+  useEffect(() => {
+    if (!isOpen || !selectedPlanForPayment || !activeIntent || isMatched) return;
+
+    const tickTimer = setInterval(() => {
+      setIntentSecondsLeft(Math.max(0, Math.floor((activeIntent.expiresAt - Date.now()) / 1000)));
+    }, 1000);
+
+    const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkIntentStatus(false);
+      }
+    }, 12000);
+
+    return () => {
+      clearInterval(tickTimer);
+      clearInterval(pollTimer);
+    };
+  }, [isOpen, selectedPlanForPayment, activeIntent, isMatched, checkIntentStatus]);
 
   if (!isOpen) return null;
 
@@ -170,28 +343,6 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
   };
 
   const handlePlanClick = (plan: PlanItem) => {
-    // Notify admin when user clicks to buy / select a plan
-    try {
-      const tgUser = (window as unknown as { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string; first_name?: string; last_name?: string; username?: string } } } } }).Telegram?.WebApp?.initDataUnsafe?.user;
-      fetch('/api/plan-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: plan.id,
-          planName: plan.name,
-          price: billingCycle === 'weekly' ? plan.priceWeekly : plan.priceMonthly,
-          billingCycle,
-          user: tgUser
-            ? {
-                id: tgUser.id,
-                name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'Operative',
-                username: tgUser.username || '',
-              }
-            : null,
-        }),
-      }).catch(() => {});
-    } catch {}
-
     if (plan.id === 'community') {
       onSelectPlan(plan.id);
       setActivatedSuccess(plan.id);
@@ -206,35 +357,65 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
     setVerificationError(null);
     setVerificationLogs([]);
     setIsMatched(false);
+    setShowManualTx(false);
   };
 
   const getDepositAddress = (network: Network): string => {
+    if (activeIntent && activeIntent.network === network && activeIntent.depositAddress) {
+      return activeIntent.depositAddress;
+    }
     if (network === 'TRON') return currentAddresses.TRON || adminAddresses.TRON;
     if (network === 'ETHEREUM') return currentAddresses.ETHEREUM || adminAddresses.ETHEREUM;
     return currentAddresses.SOLANA || adminAddresses.SOLANA;
   };
 
-  const getPaymentAmountString = (plan: PlanItem, network: Network): string => {
+  const getCheckoutAmounts = (plan: PlanItem, network: Network) => {
+    if (activeIntent && activeIntent.network === network) {
+      return {
+        nativeAmount: String(activeIntent.expectedNative),
+        nativeSymbol: activeIntent.nativeSymbol,
+        stableAmount: activeIntent.expectedUsd.toFixed(2),
+        stableSymbol: activeIntent.stableSymbol,
+      };
+    }
     const usd = billingCycle === 'weekly' ? plan.weeklyUsd : plan.monthlyUsd;
     if (network === 'TRON') {
-      const trxPrice = livePrices.TRX > 0 ? livePrices.TRX : 0.33;
-      const trx = (usd / trxPrice).toFixed(1);
-      return `${trx} TRX (or ${usd} USDT TRC-20)`;
+      const trxPrice = livePrices.TRX > 0 ? livePrices.TRX : 0.31;
+      return {
+        nativeAmount: (usd / trxPrice).toFixed(2),
+        nativeSymbol: 'TRX',
+        stableAmount: usd.toFixed(2),
+        stableSymbol: 'USDT',
+      };
     }
     if (network === 'SOLANA') {
-      const solPrice = livePrices.SOL > 0 ? livePrices.SOL : 97;
-      const sol = (usd / solPrice).toFixed(3);
-      return `${sol} SOL`;
+      const solPrice = livePrices.SOL > 0 ? livePrices.SOL : 83;
+      return {
+        nativeAmount: (usd / solPrice).toFixed(4),
+        nativeSymbol: 'SOL',
+        stableAmount: usd.toFixed(2),
+        stableSymbol: 'USDT',
+      };
     }
-    const ethPrice = livePrices.ETH > 0 ? livePrices.ETH : 2400;
-    const eth = (usd / ethPrice).toFixed(4);
-    return `${eth} ETH`;
+    const ethPrice = livePrices.ETH > 0 ? livePrices.ETH : 2040;
+    return {
+      nativeAmount: (usd / ethPrice).toFixed(5),
+      nativeSymbol: 'ETH',
+      stableAmount: usd.toFixed(2),
+      stableSymbol: 'USDT',
+    };
   };
 
-  const handleCopy = (text: string) => {
+  const formatRemainingTime = (sec: number): string => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleCopy = (text: string, field: 'addr' | 'native' | 'stable') => {
     navigator.clipboard?.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 1800);
   };
 
   // Verify transaction hash, check recipient address and amount matching strictly on-chain
@@ -248,7 +429,6 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
     }
 
     let normalizedHash = cleanHash;
-    // Auto-extract hash if user pasted explorer URL
     const tronMatch = cleanHash.match(/tronscan\.(?:org|io)\/#\/transaction\/([0-9a-fA-F]{64})/i);
     if (tronMatch) normalizedHash = tronMatch[1];
 
@@ -258,7 +438,6 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
     const solMatch = cleanHash.match(/(?:solscan\.(?:io|com)|solana\.fm)\/tx\/([1-9A-HJ-NP-Za-km-z]{80,95})/i);
     if (solMatch) normalizedHash = solMatch[1];
 
-    // Format check & sanitization
     if (paymentNetwork === 'ETHEREUM') {
       if (!normalizedHash.startsWith('0x') && /^[0-9a-fA-F]{64}$/.test(normalizedHash)) {
         normalizedHash = '0x' + normalizedHash;
@@ -288,14 +467,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       `> Auditing on-chain transaction: ${normalizedHash.slice(0, 12)}...`,
     ]);
 
-    let currentTgId: string | undefined;
-    try {
-      const tg = (window as unknown as { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string } } } } }).Telegram?.WebApp;
-      if (tg?.initDataUnsafe?.user?.id) {
-        currentTgId = String(tg.initDataUnsafe.user.id);
-      }
-    } catch {}
-
+    const currentTgId = getTelegramUserId();
     const controller = new AbortController();
     const clientTimeout = setTimeout(() => controller.abort(), 15000);
 
@@ -311,6 +483,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
           billingCycle,
           lang: language,
           tgId: currentTgId,
+          intentId: activeIntent?.id,
         }),
         signal: controller.signal,
       });
@@ -330,36 +503,19 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
         return;
       }
 
-      // Successful verification
-      setIsMatched(true);
       const finalPlan = result.planId || selectedPlanForPayment.id;
-      try {
-        localStorage.setItem('shark_user_plan', finalPlan);
-      } catch {}
-
-      setTimeout(() => {
-        onSelectPlan(finalPlan);
-        setActivatedSuccess(finalPlan);
-        setSelectedPlanForPayment(null);
-
-        setTimeout(() => {
-          setActivatedSuccess(null);
-          onClose();
-        }, 1500);
-      }, 1200);
+      applyConfirmedActivation(finalPlan);
     } catch (err: unknown) {
       setIsMatched(false);
       let msg = err instanceof Error ? err.message : 'Server verification error';
       if (err instanceof Error && err.name === 'AbortError') {
-        msg = language === 'ru'
-          ? 'Время ожидания ответа истекло. Проверьте сеть или отправьте хэш в чат бота.'
-          : 'Request timed out. Please check your network or send the transaction hash directly to the Telegram bot chat.';
+        msg =
+          language === 'ru'
+            ? 'Время ожидания ответа истекло. Проверьте сеть или попробуйте снова.'
+            : 'Request timed out. Please check your network and retry.';
       }
       setVerificationError(msg);
-      setVerificationLogs((prev) => [
-        ...prev,
-        `> [ERROR] ${msg}`,
-      ]);
+      setVerificationLogs((prev) => [...prev, `> [ERROR] ${msg}`]);
     } finally {
       clearTimeout(clientTimeout);
       isVerifyingRef.current = false;
@@ -665,152 +821,229 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
                   </div>
                 </div>
 
-                {/* Deposit Details Card */}
-                <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-3">
-                  {/* Amount to send */}
-                  <div>
-                    <span className="text-[10px] font-bold text-[#9CA3AF] uppercase block mb-1">
-                      {t('requiredDeposit')} ({paymentNetwork})
-                    </span>
-                    <div className="flex items-center justify-between bg-black/50 rounded-xl p-2.5 border border-white/5">
-                      <span className="text-sm font-mono font-extrabold text-[#38E8FF]">
-                        {getPaymentAmountString(selectedPlanForPayment, paymentNetwork)}
-                      </span>
-                      <button
-                        onClick={() => handleCopy(getPaymentAmountString(selectedPlanForPayment, paymentNetwork))}
-                        type="button"
-                        className="text-xs text-[#9CA3AF] hover:text-white cursor-pointer"
-                        title="Copy Amount"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    {livePrices && (
-                      <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded-lg bg-[#22D3EE]/10 border border-[#22D3EE]/20 text-[10px] font-mono text-[#38E8FF]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse"></span>
-                        <span>
-                          {paymentNetwork === 'TRON' && `1 TRX ≈ $${(livePrices.TRX || 0.33).toFixed(3)} USD • Live Oracle Rate`}
-                          {paymentNetwork === 'SOLANA' && `1 SOL ≈ $${(livePrices.SOL || 97).toFixed(2)} USD • Live Oracle Rate`}
-                          {paymentNetwork === 'ETHEREUM' && `1 ETH ≈ $${(livePrices.ETH || 2400).toFixed(2)} USD • Live Oracle Rate`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Destination Address */}
-                  <div>
-                    <span className="text-[10px] font-bold text-[#9CA3AF] uppercase block mb-1">
-                      {t('adminDestination')} ({paymentNetwork})
-                    </span>
-                    <div className="bg-black/50 rounded-xl p-2.5 border border-white/5 flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono text-white break-all select-all">
-                        {getDepositAddress(paymentNetwork)}
-                      </span>
-                      <button
-                        onClick={() => handleCopy(getDepositAddress(paymentNetwork))}
-                        type="button"
-                        className="flex items-center gap-1 text-[11px] font-mono text-[#38E8FF] hover:text-white shrink-0 cursor-pointer"
-                        title="Copy Address"
-                      >
-                        {copied ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-[#00E676]" />
-                            <span className="text-[#00E676]">{t('copied')}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>{t('copy')}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Transaction Hash Input Box */}
-                <div className="p-4 rounded-2xl bg-black/70 border border-[#22D3EE]/40 space-y-2.5 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10.5px] font-bold text-[#CBD5E1] uppercase tracking-wider flex items-center gap-1.5">
-                      <Search className="w-3.5 h-3.5 text-[#22D3EE]" />
-                      <span>{t('enterTxid')}</span>
-                    </label>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={txHash}
-                    onChange={(e) => {
-                      setTxHash(e.target.value);
-                      if (verificationError) setVerificationError(null);
-                    }}
-                    placeholder={
-                      paymentNetwork === 'ETHEREUM'
-                        ? '0x...'
-                        : paymentNetwork === 'TRON'
-                        ? '64-hex Tron transaction hash...'
-                        : 'Solana base58 transaction signature...'
-                    }
-                    className="w-full p-2.5 rounded-xl bg-black/60 border border-white/15 focus:border-[#22D3EE] text-xs font-mono text-[#38E8FF] placeholder-[#64748B] focus:outline-none"
-                  />
-
-                  {/* Verification Error Message */}
-                  {verificationError && (
-                    <div className="flex items-center gap-1.5 text-xs text-[#FF5252] font-semibold pt-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{verificationError}</span>
-                    </div>
-                  )}
-
-                  {/* Verification Logs Console */}
-                  {verificationLogs.length > 0 && (
-                    <div className="p-2.5 rounded-xl bg-black/80 border border-white/10 font-mono text-[10px] space-y-1 mt-2 text-[#CBD5E1]">
-                      {verificationLogs.map((log, idx) => (
-                        <div
-                          key={idx}
-                          className={
-                            log.includes('MATCHED') || log.includes('CONFIRMED')
-                              ? 'text-[#00E676] font-bold'
-                              : 'text-[#38E8FF]'
-                          }
-                        >
-                          {log}
+                {/* Deposit Details Card with Unique Micro-Amount Fingerprint */}
+                {(() => {
+                  const amounts = getCheckoutAmounts(selectedPlanForPayment, paymentNetwork);
+                  const destAddr = getDepositAddress(paymentNetwork);
+                  return (
+                    <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-3">
+                      {/* Auto-Listening Status & Invoice Timer */}
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#00E676]/10 border border-[#00E676]/30 text-[9.5px] font-mono font-bold text-[#00E676]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
+                          <span>{t('autoListening')}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        {activeIntent && intentSecondsLeft > 0 && (
+                          <div className="inline-flex items-center gap-1 text-[10px] font-mono text-[#94A3B8]">
+                            <Clock className="w-3 h-3 text-[#38E8FF]" />
+                            <span>
+                              {t('expiresIn')}: <strong className="text-white">{formatRemainingTime(intentSecondsLeft)}</strong>
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-                  {/* Match Confirmed Banner */}
-                  {isMatched && (
-                    <div className="p-2.5 rounded-xl bg-[#00E676]/15 border border-[#00E676]/40 flex items-center gap-2 text-xs font-bold text-[#00E676] animate-fadeIn">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>{t('matchConfirmed')}</span>
+                      {/* Exact Unique Amount Notice */}
+                      <p className="text-[10.5px] text-[#CBD5E1] leading-snug">
+                        {t('exactAmountNotice')}
+                      </p>
+
+                      {intentLoading ? (
+                        <div className="py-3 px-3 rounded-xl bg-black/50 border border-white/5 text-center text-xs font-mono text-[#38E8FF] animate-pulse">
+                          {t('creatingInvoice')}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                          {/* Option 1: Stablecoin Exact Amount (USDT) */}
+                          <div className="flex items-center justify-between bg-black/50 rounded-xl p-2.5 border border-[#00E676]/25">
+                            <div>
+                              <span className="text-[9px] font-mono text-[#94A3B8] uppercase block">
+                                {paymentNetwork === 'TRON' ? 'USDT TRC-20' : paymentNetwork === 'ETHEREUM' ? 'USDT / USDC ERC-20' : 'USDT / USDC SPL'}
+                              </span>
+                              <span className="text-sm font-mono font-extrabold text-[#00E676]">
+                                {amounts.stableAmount} {amounts.stableSymbol}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleCopy(amounts.stableAmount, 'stable')}
+                              type="button"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-mono text-[#00E676] cursor-pointer"
+                              title="Copy Exact USDT Amount"
+                            >
+                              {copiedField === 'stable' ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>{t('copied')}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{t('copy')}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Option 2: Native Coin Exact Amount (TRX / ETH / SOL) */}
+                          <div className="flex items-center justify-between bg-black/50 rounded-xl p-2.5 border border-[#22D3EE]/25">
+                            <div>
+                              <span className="text-[9px] font-mono text-[#94A3B8] uppercase block">
+                                {amounts.nativeSymbol} ({paymentNetwork} NATIVE)
+                              </span>
+                              <span className="text-sm font-mono font-extrabold text-[#38E8FF]">
+                                {amounts.nativeAmount} {amounts.nativeSymbol}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleCopy(amounts.nativeAmount, 'native')}
+                              type="button"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-mono text-[#38E8FF] cursor-pointer"
+                              title="Copy Exact Native Amount"
+                            >
+                              {copiedField === 'native' ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-[#00E676]" />
+                                  <span className="text-[#00E676]">{t('copied')}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{t('copy')}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Destination Address */}
+                      <div>
+                        <span className="text-[10px] font-bold text-[#9CA3AF] uppercase block mb-1">
+                          {t('adminDestination')} ({paymentNetwork})
+                        </span>
+                        <div className="bg-black/50 rounded-xl p-2.5 border border-white/5 flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-white break-all select-all">
+                            {destAddr}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(destAddr, 'addr')}
+                            type="button"
+                            className="flex items-center gap-1 text-[11px] font-mono text-[#38E8FF] hover:text-white shrink-0 cursor-pointer"
+                            title="Copy Address"
+                          >
+                            {copiedField === 'addr' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-[#00E676]" />
+                                <span className="text-[#00E676]">{t('copied')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>{t('copy')}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Verification Logs Console */}
+                {verificationLogs.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-black/80 border border-white/10 font-mono text-[10px] space-y-1 text-[#CBD5E1]">
+                    {verificationLogs.map((log, idx) => (
+                      <div
+                        key={idx}
+                        className={
+                          log.includes('MATCHED') || log.includes('CONFIRMED')
+                            ? 'text-[#00E676] font-bold'
+                            : 'text-[#38E8FF]'
+                        }
+                      >
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Match Confirmed Banner */}
+                {isMatched && (
+                  <div className="p-2.5 rounded-xl bg-[#00E676]/15 border border-[#00E676]/40 flex items-center gap-2 text-xs font-bold text-[#00E676] animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{t('matchConfirmed')}</span>
+                  </div>
+                )}
+
+                {/* Primary Instant Auto-Check CTA Button (No TxHash Copy Required) */}
+                {activeIntent && (
+                  <button
+                    onClick={() => checkIntentStatus(true)}
+                    disabled={isAutoChecking || isVerifying || isMatched}
+                    type="button"
+                    className={`w-full py-3.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-extrabold tracking-wider uppercase cursor-pointer select-none transition-all ${
+                      isMatched
+                        ? 'bg-[#00E676]/20 border border-[#00E676]/50 text-[#00E676]'
+                        : 'bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#00C853] hover:to-[#00B048] text-black shadow-[0_4px_16px_rgba(0,230,118,0.25)] active:scale-98'
+                    }`}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isAutoChecking ? 'animate-spin' : ''}`} />
+                    <span>{isAutoChecking ? t('checkingOnChain') : isMatched ? 'MATCH CONFIRMED' : t('checkNowBtn')}</span>
+                  </button>
+                )}
+
+                {/* Manual TxHash Backup Accordion */}
+                <div className="rounded-2xl bg-black/50 border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => setShowManualTx((prev) => !prev)}
+                    type="button"
+                    className="w-full px-4 py-2.5 flex items-center justify-between text-[11px] font-mono text-[#94A3B8] hover:text-white cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-[#22D3EE]" />
+                      <span>{t('manualTxToggle')}</span>
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showManualTx ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showManualTx && (
+                    <div className="p-3.5 pt-1 space-y-2.5 border-t border-white/[0.06]">
+                      <input
+                        type="text"
+                        value={txHash}
+                        onChange={(e) => {
+                          setTxHash(e.target.value);
+                          if (verificationError) setVerificationError(null);
+                        }}
+                        placeholder={
+                          paymentNetwork === 'ETHEREUM'
+                            ? '0x...'
+                            : paymentNetwork === 'TRON'
+                            ? '64-hex Tron transaction hash...'
+                            : 'Solana base58 transaction signature...'
+                        }
+                        className="w-full p-2.5 rounded-xl bg-black/60 border border-white/15 focus:border-[#22D3EE] text-xs font-mono text-[#38E8FF] placeholder-[#64748B] focus:outline-none"
+                      />
+
+                      {verificationError && (
+                        <div className="flex items-center gap-1.5 text-xs text-[#FF5252] font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{verificationError}</span>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleVerifyPayment}
+                        disabled={isVerifying || isMatched}
+                        type="button"
+                        className="w-full py-2.5 rounded-xl button-dark-metal border border-[#22D3EE]/30 flex items-center justify-center gap-2 text-xs font-bold tracking-wider uppercase text-white hover:text-[#38E8FF] cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-[#38E8FF]" />
+                        <span>{isVerifying ? t('checkingOnChain') : t('verifyAndActivate')}</span>
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {/* Confirm & Verify Button */}
-                <button
-                  onClick={handleVerifyPayment}
-                  disabled={isVerifying || isMatched}
-                  type="button"
-                  className={`w-full py-3.5 rounded-2xl button-dark-metal flex items-center justify-center gap-2 text-xs font-bold tracking-widest uppercase cursor-pointer select-none ${
-                    isMatched ? 'text-[#00E676] border-[#00E676]/50' : 'text-white hover:text-[#38E8FF]'
-                  }`}
-                >
-                  {isVerifying ? (
-                    <span className="animate-pulse text-[#38E8FF]">
-                      {t('checkingOnChain')}
-                    </span>
-                  ) : isMatched ? (
-                    <span>MATCH CONFIRMED (12 BLOCKS)</span>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-4 h-4 text-[#38E8FF]" />
-                      <span>{t('verifyAndActivate')}</span>
-                    </>
-                  )}
-                </button>
               </div>
             )}
 

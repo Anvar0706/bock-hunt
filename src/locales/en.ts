@@ -168,6 +168,12 @@ export const en = {
   communityCapExceeded: 'Community Plan Cap Exceeded',
   txErrorEmpty: 'Please enter the payment transaction hash first!',
   txErrorInvalid: 'Invalid transaction hash format for this network. Please enter a valid on-chain TX hash.',
+  autoListening: 'AUTO-LISTENING ON-CHAIN',
+  exactAmountNotice: 'Send the exact unique amount shown below for automatic instant activation:',
+  checkNowBtn: 'I HAVE PAID — CHECK NOW',
+  manualTxToggle: 'Or paste TxID manually',
+  expiresIn: 'Expires in',
+  creatingInvoice: 'Generating unique payment invoice...',
 
   // Plans details
   planCommunityName: 'COMMUNITY',

@@ -3,21 +3,41 @@ import {
   getPricingSettings,
   isHashUsed,
   markHashUsed,
+  getPaymentIntentById,
+  type PaymentIntentRecord,
 } from './db';
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const TRANSFER_TOPIC_HEX = 'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const MAX_TX_AGE_MS = 72 * 60 * 60 * 1000; // 72 hours max transaction age
 
-interface PriceMap {
+export interface PriceMap {
   TRX: number;
   ETH: number;
   SOL: number;
   USDT: number;
 }
 
+export interface OnChainInspectionResult {
+  ok: true;
+  deliveredUsd: number;
+  deliveredNative: number;
+  deliveredStable: number;
+  symbol: string;
+  txTimestampMs: number;
+}
+
+export interface OnChainInspectionError {
+  ok: false;
+  error: string;
+  fraudReason?: string;
+}
+
 let cachedPrices: PriceMap = { TRX: 0.31, ETH: 2040, SOL: 83, USDT: 1.0 };
 let lastPriceFetch = 0;
+
+// 10-second shared in-memory cache per (network:address) for incoming tx polling
+const incomingTxCache = new Map<string, { fetchedAt: number; hashes: string[] }>();
 
 function decodeTronAddress(b58: string) {
   try {
@@ -61,7 +81,6 @@ function tokenUnitsToFloat(raw: string | bigint, decimals: number): number {
 function isRecentTimestamp(txMs: number): boolean {
   if (!Number.isFinite(txMs) || txMs <= 0) return false;
   const diff = Date.now() - txMs;
-  // Allow up to 5 min future clock skew and up to 72 hours past
   return diff >= -300_000 && diff <= MAX_TX_AGE_MS;
 }
 
@@ -79,13 +98,12 @@ async function fetchJson(url: string, init?: RequestInit, timeoutMs = 4500): Pro
   }
 }
 
-async function getLiveCryptoPrices(): Promise<PriceMap> {
+export async function getLiveCryptoPrices(): Promise<PriceMap> {
   const now = Date.now();
   if (now - lastPriceFetch < 30_000) {
     return cachedPrices;
   }
 
-  // Primary: CoinGecko
   const cg = await fetchJson(
     'https://api.coingecko.com/api/v3/simple/price?ids=tron,ethereum,solana,tether&vs_currencies=usd',
     { headers: { 'User-Agent': 'Mozilla/5.0' } },
@@ -102,7 +120,6 @@ async function getLiveCryptoPrices(): Promise<PriceMap> {
     return cachedPrices;
   }
 
-  // Secondary fallback: Coinbase spot for ETH/SOL & Binance for TRX/ETH/SOL
   const [cbEth, cbSol, binTrx] = await Promise.all([
     fetchJson('https://api.coinbase.com/v2/prices/ETH-USD/spot', undefined, 3000),
     fetchJson('https://api.coinbase.com/v2/prices/SOL-USD/spot', undefined, 3000),
@@ -118,9 +135,9 @@ async function getLiveCryptoPrices(): Promise<PriceMap> {
 }
 
 const ETH_STABLECOINS: Record<string, { decimals: number; symbol: string }> = {
-  '0xdac17f958d2ee523a2206206994597c13d831ec7': { decimals: 6, symbol: 'USDT' }, // Tether USD
-  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { decimals: 6, symbol: 'USDC' }, // USD Coin
-  '0x6b175474e89094c44da98b954eedeac495271d0f': { decimals: 18, symbol: 'DAI' }, // Dai
+  '0xdac17f958d2ee523a2206206994597c13d831ec7': { decimals: 6, symbol: 'USDT' },
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { decimals: 6, symbol: 'USDC' },
+  '0x6b175474e89094c44da98b954eedeac495271d0f': { decimals: 18, symbol: 'DAI' },
 };
 
 const TRON_STABLECOIN_MAP = (() => {
@@ -143,18 +160,13 @@ const SOL_STABLECOINS: Record<string, { decimals: number; symbol: string }> = {
   Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: { decimals: 6, symbol: 'USDT' },
 };
 
-async function verifyTronTransaction(
+async function inspectTronTransaction(
   rawTronHash: string,
   expectedAddr: string,
-  minRequiredWithBuffer: number,
-  minUsd: number,
   prices: PriceMap,
   isRu: boolean,
   logs: string[]
-): Promise<
-  | { ok: true; deliveredUsd: number; symbol: string }
-  | { ok: false; error: string; fraudReason?: string }
-> {
+): Promise<OnChainInspectionResult | OnChainInspectionError> {
   const decodedExpected = decodeTronAddress(expectedAddr);
   if (!decodedExpected) {
     return { ok: false, error: 'System deposit address misconfigured for TRON.' };
@@ -191,7 +203,6 @@ async function verifyTronTransaction(
     };
   }
 
-  // 1. Confirmation & SUCCESS status check
   if (tgTx) {
     const retStatus = tgTx.ret?.[0]?.contractRet;
     if (retStatus && retStatus !== 'SUCCESS') {
@@ -233,7 +244,6 @@ async function verifyTronTransaction(
     }
   }
 
-  // 2. Recency check
   const txTimestampMs = Number(
     tgInfo?.blockTimeStamp || tsInfo?.timestamp || tgTx?.raw_data?.timestamp || 0
   );
@@ -248,11 +258,11 @@ async function verifyTronTransaction(
     };
   }
 
-  // 3. Recipient & Delivered USD calculation
+  let deliveredNative = 0;
+  let deliveredStable = 0;
   let deliveredUsd = 0;
   let detectedSymbol = 'USDT';
 
-  // Parse TronGrid native TRX + TRC20 logs
   if (tgTx) {
     const contract = tgTx.raw_data?.contract?.[0];
     if (contract?.type === 'TransferContract') {
@@ -260,6 +270,7 @@ async function verifyTronTransaction(
       const toHex = String(val.to_address || '').toLowerCase();
       if (toHex === decodedExpected.addrWith41 || toHex === expectedAddr.toLowerCase()) {
         const trxAmt = tokenUnitsToFloat(BigInt(val.amount || 0), 6);
+        deliveredNative += trxAmt;
         deliveredUsd += trxAmt * prices.TRX;
         detectedSymbol = 'TRX';
       }
@@ -279,6 +290,7 @@ async function verifyTronTransaction(
           if (toRaw20 === decodedExpected.raw20) {
             const rawDataHex = String(entry.data || '0').replace(/^0x/, '') || '0';
             const amt = tokenUnitsToFloat(BigInt('0x' + rawDataHex), tokenMeta.decimals);
+            deliveredStable += amt;
             deliveredUsd += amt * prices.USDT;
             detectedSymbol = tokenMeta.symbol;
           }
@@ -288,6 +300,7 @@ async function verifyTronTransaction(
   } else if (hasTronScan) {
     if (tsInfo.contractType === 1 && tsInfo.toAddress === expectedAddr) {
       const trxAmt = tokenUnitsToFloat(BigInt(tsInfo.contractData?.amount || 0), 6);
+      deliveredNative += trxAmt;
       deliveredUsd += trxAmt * prices.TRX;
       detectedSymbol = 'TRX';
     }
@@ -296,6 +309,7 @@ async function verifyTronTransaction(
         const tokenMeta = TRON_STABLECOIN_MAP.byBase58.get(String(t.contract_address || ''));
         if (tokenMeta && t.to_address === expectedAddr) {
           const amt = tokenUnitsToFloat(BigInt(t.amount_str || 0), Number(t.decimals || tokenMeta.decimals));
+          deliveredStable += amt;
           deliveredUsd += amt * prices.USDT;
           detectedSymbol = tokenMeta.symbol;
         }
@@ -314,32 +328,23 @@ async function verifyTronTransaction(
     };
   }
 
-  if (deliveredUsd < minRequiredWithBuffer) {
-    logs.push(`> [REJECTED] Underpayment: Received ~$${deliveredUsd.toFixed(2)} USD, Required >= $${minUsd} USD`);
-    return {
-      ok: false,
-      fraudReason: 'underpayment',
-      error: isRu
-        ? `Недостаточная сумма оплаты: получено ~$${deliveredUsd.toFixed(2)}, требуется $${minUsd}.`
-        : `Insufficient payment amount: received ~$${deliveredUsd.toFixed(2)} USD, plan requires $${minUsd} USD.`,
-    };
-  }
-
-  return { ok: true, deliveredUsd, symbol: detectedSymbol };
+  return {
+    ok: true,
+    deliveredUsd,
+    deliveredNative,
+    deliveredStable,
+    symbol: detectedSymbol,
+    txTimestampMs,
+  };
 }
 
-async function verifyEthereumTransaction(
+async function inspectEthereumTransaction(
   rawEthHash: string,
   expectedAddr: string,
-  minRequiredWithBuffer: number,
-  minUsd: number,
   prices: PriceMap,
   isRu: boolean,
   logs: string[]
-): Promise<
-  | { ok: true; deliveredUsd: number; symbol: string }
-  | { ok: false; error: string; fraudReason?: string }
-> {
+): Promise<OnChainInspectionResult | OnChainInspectionError> {
   if (!/^0x[0-9a-fA-F]{40}$/.test(expectedAddr)) {
     return { ok: false, error: 'System deposit address misconfigured for ETHEREUM.' };
   }
@@ -404,12 +409,12 @@ async function verifyEthereumTransaction(
     };
   }
 
-  // Block timestamp recency check
   const blockResults = await Promise.all(
     ethRpcs.slice(0, 3).map((u) => rpcCall(u, 'eth_getBlockByNumber', [receipt.blockNumber, false]))
   );
   const block = blockResults.find(Boolean);
-  if (!block?.timestamp || !isRecentTimestamp(Number(BigInt(block.timestamp)) * 1000)) {
+  const txTimestampMs = block?.timestamp ? Number(BigInt(block.timestamp)) * 1000 : 0;
+  if (!isRecentTimestamp(txTimestampMs)) {
     logs.push(`> [REJECTED] Transaction expired (>72h old)`);
     return {
       ok: false,
@@ -420,17 +425,18 @@ async function verifyEthereumTransaction(
     };
   }
 
+  let deliveredNative = 0;
+  let deliveredStable = 0;
   let deliveredUsd = 0;
   let detectedSymbol = 'ETH';
 
-  // 1. Native ETH transfer directly to admin wallet
   if ((tx.to || '').toLowerCase() === expectedLower) {
     const ethAmt = tokenUnitsToFloat(BigInt(tx.value || '0x0'), 18);
+    deliveredNative += ethAmt;
     deliveredUsd += ethAmt * prices.ETH;
     detectedSymbol = 'ETH';
   }
 
-  // 2. ERC-20 Official Stablecoin Transfer events to admin wallet
   if (Array.isArray(receipt.logs)) {
     for (const entry of receipt.logs) {
       const tokenAddr = String(entry.address || '').toLowerCase();
@@ -444,6 +450,7 @@ async function verifyEthereumTransaction(
         const toAddr = '0x' + String(topics[2] || '').slice(-40).toLowerCase();
         if (toAddr === expectedLower) {
           const amt = tokenUnitsToFloat(BigInt(entry.data || '0x0'), tokenMeta.decimals);
+          deliveredStable += amt;
           deliveredUsd += amt * prices.USDT;
           detectedSymbol = tokenMeta.symbol;
         }
@@ -462,32 +469,23 @@ async function verifyEthereumTransaction(
     };
   }
 
-  if (deliveredUsd < minRequiredWithBuffer) {
-    logs.push(`> [REJECTED] Underpayment: Received ~$${deliveredUsd.toFixed(2)} USD, Required >= $${minUsd} USD`);
-    return {
-      ok: false,
-      fraudReason: 'underpayment',
-      error: isRu
-        ? `Недостаточная сумма оплаты: получено ~$${deliveredUsd.toFixed(2)}, требуется $${minUsd}.`
-        : `Insufficient payment amount: received ~$${deliveredUsd.toFixed(2)} USD, plan requires $${minUsd} USD.`,
-    };
-  }
-
-  return { ok: true, deliveredUsd, symbol: detectedSymbol };
+  return {
+    ok: true,
+    deliveredUsd,
+    deliveredNative,
+    deliveredStable,
+    symbol: detectedSymbol,
+    txTimestampMs,
+  };
 }
 
-async function verifySolanaTransaction(
+async function inspectSolanaTransaction(
   cleanHash: string,
   expectedAddr: string,
-  minRequiredWithBuffer: number,
-  minUsd: number,
   prices: PriceMap,
   isRu: boolean,
   logs: string[]
-): Promise<
-  | { ok: true; deliveredUsd: number; symbol: string }
-  | { ok: false; error: string; fraudReason?: string }
-> {
+): Promise<OnChainInspectionResult | OnChainInspectionError> {
   const solRpcs = [
     'https://api.mainnet-beta.solana.com',
     'https://rpc.ankr.com/solana',
@@ -536,7 +534,8 @@ async function verifySolanaTransaction(
     };
   }
 
-  if (solTx.blockTime && !isRecentTimestamp(Number(solTx.blockTime) * 1000)) {
+  const txTimestampMs = solTx.blockTime ? Number(solTx.blockTime) * 1000 : Date.now();
+  if (solTx.blockTime && !isRecentTimestamp(txTimestampMs)) {
     logs.push(`> [REJECTED] Transaction expired (>72h old)`);
     return {
       ok: false,
@@ -547,10 +546,11 @@ async function verifySolanaTransaction(
     };
   }
 
+  let deliveredNative = 0;
+  let deliveredStable = 0;
   let deliveredUsd = 0;
   let detectedSymbol = 'SOL';
 
-  // 1. Native SOL delta for expectedAddr
   const accountKeys: any[] = solTx.transaction?.message?.accountKeys || [];
   const addrIdx = accountKeys.findIndex((k) => {
     const pubkey = typeof k === 'string' ? k : k?.pubkey;
@@ -562,12 +562,12 @@ async function verifySolanaTransaction(
     const postLamports = BigInt(solTx.meta.postBalances?.[addrIdx] ?? 0);
     if (postLamports > preLamports) {
       const solAmt = tokenUnitsToFloat(postLamports - preLamports, 9);
+      deliveredNative += solAmt;
       deliveredUsd += solAmt * prices.SOL;
       detectedSymbol = 'SOL';
     }
   }
 
-  // 2. SPL Official USDT/USDC balance delta for owner == expectedAddr
   const preTokens: any[] = solTx.meta.preTokenBalances || [];
   const postTokens: any[] = solTx.meta.postTokenBalances || [];
 
@@ -582,6 +582,7 @@ async function verifySolanaTransaction(
       if (postRaw > preRaw) {
         const dec = Number(post.uiTokenAmount?.decimals ?? tokenMeta.decimals);
         const amt = tokenUnitsToFloat(postRaw - preRaw, dec);
+        deliveredStable += amt;
         deliveredUsd += amt * prices.USDT;
         detectedSymbol = tokenMeta.symbol;
       }
@@ -599,19 +600,245 @@ async function verifySolanaTransaction(
     };
   }
 
-  if (deliveredUsd < minRequiredWithBuffer) {
-    logs.push(`> [REJECTED] Underpayment: Received ~$${deliveredUsd.toFixed(2)} USD, Required >= $${minUsd} USD`);
-    return {
-      ok: false,
-      fraudReason: 'underpayment',
-      error: isRu
-        ? `Недостаточная сумма оплаты: получено ~$${deliveredUsd.toFixed(2)}, требуется $${minUsd}.`
-        : `Insufficient payment amount: received ~$${deliveredUsd.toFixed(2)} USD, plan requires $${minUsd} USD.`,
-    };
+  return {
+    ok: true,
+    deliveredUsd,
+    deliveredNative,
+    deliveredStable,
+    symbol: detectedSymbol,
+    txTimestampMs,
+  };
+}
+
+export async function inspectOnChainTransaction(params: {
+  txHash: string;
+  network: string;
+  expectedAddr: string;
+  isRu?: boolean;
+  logs?: string[];
+}): Promise<OnChainInspectionResult | OnChainInspectionError> {
+  const { txHash, network, expectedAddr, isRu = false, logs = [] } = params;
+  const cleanHash = (txHash || '').trim();
+  const prices = await getLiveCryptoPrices();
+
+  if (network === 'TRON') {
+    const rawTronHash = cleanHash.replace(/^0x/i, '');
+    if (!/^[0-9a-fA-F]{64}$/.test(rawTronHash)) {
+      return {
+        ok: false,
+        error: isRu
+          ? 'Неверный формат TxID! Хэш транзакции TRON должен состоять ровно из 64 hex-символов.'
+          : 'Invalid TxID format! TRON transaction hash must be exactly 64 hexadecimal characters.',
+      };
+    }
+    return inspectTronTransaction(rawTronHash, expectedAddr, prices, isRu, logs);
   }
 
-  return { ok: true, deliveredUsd, symbol: detectedSymbol };
+  if (network === 'ETHEREUM') {
+    const rawEthHash = cleanHash.startsWith('0x') ? cleanHash : `0x${cleanHash}`;
+    if (!/^0x[0-9a-fA-F]{64}$/.test(rawEthHash)) {
+      return {
+        ok: false,
+        error: isRu
+          ? 'Неверный формат TxID для Ethereum! Должен начинаться с 0x и содержать 66 символов.'
+          : 'Invalid Ethereum TxID format! Must start with 0x and be 66 characters long.',
+      };
+    }
+    return inspectEthereumTransaction(rawEthHash, expectedAddr, prices, isRu, logs);
+  }
+
+  if (network === 'SOLANA') {
+    if (!/^[1-9A-HJ-NP-Za-km-z]{64,95}$/.test(cleanHash)) {
+      return {
+        ok: false,
+        error: isRu ? 'Неверный формат подписи Solana!' : 'Invalid Solana signature format!',
+      };
+    }
+    return inspectSolanaTransaction(cleanHash, expectedAddr, prices, isRu, logs);
+  }
+
+  return { ok: false, error: 'Unsupported network' };
 }
+
+/**
+ * Matches a strictly audited on-chain transaction against a unique payment intent
+ * using both creation timestamp window and unique micro-amount fingerprint.
+ */
+export function doesTxMatchIntent(
+  intent: PaymentIntentRecord,
+  inspection: OnChainInspectionResult,
+  mode: 'auto' | 'manual' = 'auto'
+): { matched: boolean; reason?: string } {
+  // 1. Transaction must not predate intent creation (>2 min clock skew tolerance)
+  if (inspection.txTimestampMs < intent.createdAt - 120_000) {
+    return { matched: false, reason: 'tx_predates_intent' };
+  }
+
+  // 2. Match exact unique micro-amount fingerprint
+  const stableTol = mode === 'auto' ? 0.04 : 0.12;
+  const nativeRelTol = mode === 'auto' ? 0.012 : 0.025;
+
+  if (inspection.deliveredStable > 0) {
+    if (Math.abs(inspection.deliveredStable - intent.expectedUsd) <= stableTol) {
+      return { matched: true };
+    }
+  }
+
+  if (inspection.deliveredNative > 0 && intent.expectedNative > 0) {
+    const relDiff = Math.abs(inspection.deliveredNative - intent.expectedNative) / intent.expectedNative;
+    if (relDiff <= nativeRelTol && inspection.deliveredUsd >= intent.baseUsd * 0.85) {
+      return { matched: true };
+    }
+  }
+
+  return { matched: false, reason: 'amount_fingerprint_mismatch' };
+}
+
+/**
+ * Fetches up to 10 recent confirmed incoming txHashes for a deposit wallet
+ * using a 10-second shared in-memory cache (minimizes public RPC load).
+ */
+export async function fetchRecentIncomingTxHashes(
+  network: string,
+  depositAddress: string,
+  sinceMs: number
+): Promise<string[]> {
+  const cacheKey = `${network}:${depositAddress}`;
+  const now = Date.now();
+  const cached = incomingTxCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < 10_000) {
+    return cached.hashes;
+  }
+
+  const hashes = new Set<string>();
+
+  if (network === 'TRON') {
+    const [trxData, trc20Data] = await Promise.all([
+      fetchJson(
+        `https://api.trongrid.io/v1/accounts/${depositAddress}/transactions?only_to=true&only_confirmed=true&limit=10`,
+        undefined,
+        4000
+      ),
+      fetchJson(
+        `https://api.trongrid.io/v1/accounts/${depositAddress}/transactions/trc20?only_to=true&only_confirmed=true&limit=10`,
+        undefined,
+        4000
+      ),
+    ]);
+
+    for (const item of trxData?.data || []) {
+      const ts = Number(item.block_timestamp || item.raw_data?.timestamp || 0);
+      if (item.txID && (!ts || ts >= sinceMs)) {
+        hashes.add(String(item.txID));
+      }
+    }
+    for (const item of trc20Data?.data || []) {
+      const ts = Number(item.block_timestamp || 0);
+      if (item.transaction_id && (!ts || ts >= sinceMs)) {
+        hashes.add(String(item.transaction_id));
+      }
+    }
+  } else if (network === 'ETHEREUM') {
+    const addrLower = depositAddress.toLowerCase();
+    const padded = '0x000000000000000000000000' + addrLower.slice(2);
+
+    const [bsRes, blkNumRes] = await Promise.all([
+      fetchJson(`https://eth.blockscout.com/api/v2/addresses/${depositAddress}/transactions`, undefined, 4000),
+      fetchJson(
+        'https://ethereum.publicnode.com',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+        },
+        3500
+      ),
+    ]);
+
+    for (const item of (bsRes?.items || []).slice(0, 12)) {
+      if (item.hash && item.to?.hash?.toLowerCase() === addrLower) {
+        const ts = item.timestamp ? new Date(item.timestamp).getTime() : 0;
+        if (!ts || ts >= sinceMs) {
+          hashes.add(String(item.hash));
+        }
+      }
+    }
+
+    if (blkNumRes?.result) {
+      const latestBlk = parseInt(blkNumRes.result, 16);
+      const fromHex = '0x' + Math.max(0, latestBlk - 250).toString(16);
+      const logsRes = await fetchJson(
+        'https://ethereum.publicnode.com',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'eth_getLogs',
+            params: [
+              {
+                fromBlock: fromHex,
+                toBlock: blkNumRes.result,
+                address: Object.keys(ETH_STABLECOINS),
+                topics: ['0x' + TRANSFER_TOPIC_HEX, null, padded],
+              },
+            ],
+          }),
+        },
+        4000
+      );
+      for (const l of logsRes?.result || []) {
+        if (l.transactionHash) hashes.add(String(l.transactionHash));
+      }
+    }
+  } else if (network === 'SOLANA') {
+    const sigRes = await fetchJson(
+      'https://api.mainnet-beta.solana.com',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getSignaturesForAddress',
+          params: [depositAddress, { limit: 12 }],
+        }),
+      },
+      4000
+    );
+    for (const s of sigRes?.result || []) {
+      const ts = s.blockTime ? Number(s.blockTime) * 1000 : 0;
+      if (s.signature && s.err === null && (!ts || ts >= sinceMs)) {
+        hashes.add(String(s.signature));
+      }
+    }
+  }
+
+  const list = Array.from(hashes);
+  incomingTxCache.set(cacheKey, { fetchedAt: now, hashes: list });
+  return list;
+}
+
+export type VerifyOnChainResult =
+  | {
+      ok: true;
+      network: string;
+      plan: string;
+      cycle: string;
+      amountUsd: number;
+      deliveredUsd: number;
+      symbol: string;
+      hash: string;
+      intentId?: string;
+      logs: string[];
+    }
+  | {
+      ok: false;
+      error: string;
+      fraudReason?: string;
+      logs: string[];
+    };
 
 export async function verifyOnChainPayment(params: {
   txHash: string;
@@ -620,8 +847,9 @@ export async function verifyOnChainPayment(params: {
   billingCycle: string;
   lang?: string;
   tgId?: string;
-}) {
-  const { txHash, network, planId, billingCycle, lang } = params;
+  intentId?: string;
+}): Promise<VerifyOnChainResult> {
+  const { txHash, network, planId, billingCycle, lang, tgId, intentId } = params;
   const isRu = lang === 'ru';
   const logs: string[] = [];
 
@@ -661,7 +889,55 @@ export async function verifyOnChainPayment(params: {
     };
   }
 
-  // 2. Minimum Required USD from Pricing Settings
+  // 2. Load intent if passed
+  let intent: PaymentIntentRecord | null = null;
+  if (intentId) {
+    intent = await getPaymentIntentById(intentId);
+    if (!intent || (tgId && intent.tgId !== String(tgId))) {
+      return {
+        ok: false,
+        fraudReason: 'invalid_intent',
+        error: isRu ? 'Счёт на оплату не найден.' : 'Payment invoice not found.',
+        logs: ['> [FAILED] Payment invoice not found'],
+      };
+    }
+    if (intent.status === 'COMPLETED') {
+      return {
+        ok: true,
+        network: intent.network,
+        plan: intent.plan,
+        cycle: intent.cycle,
+        amountUsd: intent.expectedUsd,
+        deliveredUsd: intent.expectedUsd,
+        symbol: intent.nativeSymbol,
+        hash: intent.txHash || cleanHash,
+        intentId: intent.id,
+        logs: ['> [CONFIRMED] Payment already activated via invoice auto-detection!'],
+      };
+    }
+    if (Date.now() > intent.expiresAt) {
+      return {
+        ok: false,
+        fraudReason: 'intent_expired',
+        error: isRu
+          ? 'Время счёта истекло (45 мин). Закройте и откройте оплату заново.'
+          : 'Payment invoice expired. Please reopen checkout to generate a fresh invoice.',
+        logs: ['> [FAILED] Payment invoice expired'],
+      };
+    }
+    if (intent.network !== network || intent.plan !== targetPlan || intent.cycle !== targetCycle) {
+      return {
+        ok: false,
+        fraudReason: 'intent_mismatch',
+        error: isRu
+          ? 'Параметры счёта не совпадают с выбранным тарифом или сетью.'
+          : 'Payment invoice network/plan does not match request parameters.',
+        logs: ['> [REJECTED] Invoice plan/network mismatch'],
+      };
+    }
+  }
+
+  // 3. Minimum Required USD from Pricing Settings
   const pricing = await getPricingSettings();
   const baseUsd =
     targetCycle === 'monthly'
@@ -673,11 +949,11 @@ export async function verifyOnChainPayment(params: {
     const discountPct = Number(pricing.discount.percent) || 0;
     minUsd = Math.round(baseUsd * (1 - discountPct / 100));
   }
-  const minRequiredWithBuffer = minUsd * 0.88; // 12% tolerance for live price shifts / fees
+  const minRequiredWithBuffer = minUsd * 0.88;
 
-  // 3. Expected Admin Destination Address
+  // 4. Expected Admin Destination Address
   const savedAddrs = await getAddresses();
-  const expectedAddr = (savedAddrs[network] || '').trim();
+  const expectedAddr = (intent?.depositAddress || savedAddrs[network] || '').trim();
   if (!expectedAddr) {
     return {
       ok: false,
@@ -689,69 +965,77 @@ export async function verifyOnChainPayment(params: {
   logs.push(`> Connecting to ${network} mainnet RPC cluster...`);
   logs.push(`> Auditing transaction hash: ${cleanHash.slice(0, 12)}...`);
   logs.push(`> Expected recipient address: ${expectedAddr}`);
-  logs.push(`> Required plan volume: >= $${minUsd} USD`);
+  logs.push(
+    intent
+      ? `> Exact invoice target: $${intent.expectedUsd.toFixed(2)} USD (${intent.expectedNative} ${intent.nativeSymbol})`
+      : `> Required plan volume: >= $${minUsd} USD`
+  );
 
-  const prices = await getLiveCryptoPrices();
-  let result:
-    | { ok: true; deliveredUsd: number; symbol: string }
-    | { ok: false; error: string; fraudReason?: string };
+  const inspection = await inspectOnChainTransaction({
+    txHash: cleanHash,
+    network,
+    expectedAddr,
+    isRu,
+    logs,
+  });
 
-  if (network === 'TRON') {
-    const rawTronHash = cleanHash.replace(/^0x/i, '');
-    if (!/^[0-9a-fA-F]{64}$/.test(rawTronHash)) {
-      return {
-        ok: false,
-        error: isRu
-          ? 'Неверный формат TxID! Хэш транзакции TRON должен состоять ровно из 64 hex-символов.'
-          : 'Invalid TxID format! TRON transaction hash must be exactly 64 hexadecimal characters.',
-        logs: [...logs, `> [FAILED] Regex format mismatch: Expected 64-hex Tron TxID`],
-      };
-    }
-    result = await verifyTronTransaction(rawTronHash, expectedAddr, minRequiredWithBuffer, minUsd, prices, isRu, logs);
-  } else if (network === 'ETHEREUM') {
-    const rawEthHash = cleanHash.startsWith('0x') ? cleanHash : `0x${cleanHash}`;
-    if (!/^0x[0-9a-fA-F]{64}$/.test(rawEthHash)) {
-      return {
-        ok: false,
-        error: isRu
-          ? 'Неверный формат TxID для Ethereum! Должен начинаться с 0x и содержать 66 символов.'
-          : 'Invalid Ethereum TxID format! Must start with 0x and be 66 characters long.',
-        logs: [...logs, `> [FAILED] Invalid 0x-hex format for Ethereum`],
-      };
-    }
-    result = await verifyEthereumTransaction(rawEthHash, expectedAddr, minRequiredWithBuffer, minUsd, prices, isRu, logs);
-  } else if (network === 'SOLANA') {
-    if (!/^[1-9A-HJ-NP-Za-km-z]{64,95}$/.test(cleanHash)) {
-      return {
-        ok: false,
-        error: isRu ? 'Неверный формат подписи Solana!' : 'Invalid Solana signature format!',
-        logs: [...logs, `> [FAILED] Base58 signature format invalid`],
-      };
-    }
-    result = await verifySolanaTransaction(cleanHash, expectedAddr, minRequiredWithBuffer, minUsd, prices, isRu, logs);
-  } else {
+  if (!inspection.ok) {
     return {
       ok: false,
-      error: 'Unsupported network',
-      logs: ['> [ERROR] Unsupported network'],
-    };
-  }
-
-  if (!result.ok) {
-    return {
-      ok: false,
-      error: result.error,
-      fraudReason: result.fraudReason,
+      error: inspection.error,
+      fraudReason: inspection.fraudReason,
       logs,
     };
   }
 
-  // 4. Atomic claim in used_hashes ONLY AFTER strict on-chain audit passes
+  // If intent exists, enforce exact timestamp + micro-amount fingerprint
+  if (intent) {
+    const intentMatch = doesTxMatchIntent(intent, inspection, 'manual');
+    if (!intentMatch.matched) {
+      const msg =
+        intentMatch.reason === 'tx_predates_intent'
+          ? isRu
+            ? 'Транзакция была создана до выставления этого счёта!'
+            : 'Transaction predates this payment invoice. Please send a fresh payment.'
+          : isRu
+          ? `Сумма не совпадает со счётом: получено ${
+              inspection.deliveredStable > 0
+                ? `${inspection.deliveredStable.toFixed(2)} ${inspection.symbol}`
+                : `${inspection.deliveredNative} ${inspection.symbol}`
+            }, ожидалось $${intent.expectedUsd.toFixed(2)} (${intent.expectedNative} ${intent.nativeSymbol}).`
+          : `Amount does not match unique invoice: received ${
+              inspection.deliveredStable > 0
+                ? `${inspection.deliveredStable.toFixed(2)} ${inspection.symbol}`
+                : `${inspection.deliveredNative} ${inspection.symbol}`
+            }, expected ${intent.expectedUsd.toFixed(2)} ${intent.stableSymbol} / ${intent.expectedNative} ${intent.nativeSymbol}.`;
+      logs.push(`> [REJECTED] ${intentMatch.reason}`);
+      return {
+        ok: false,
+        fraudReason: intentMatch.reason,
+        error: msg,
+        logs,
+      };
+    }
+  } else if (inspection.deliveredUsd < minRequiredWithBuffer) {
+    logs.push(
+      `> [REJECTED] Underpayment: Received ~$${inspection.deliveredUsd.toFixed(2)} USD, Required >= $${minUsd} USD`
+    );
+    return {
+      ok: false,
+      fraudReason: 'underpayment',
+      error: isRu
+        ? `Недостаточная сумма оплаты: получено ~$${inspection.deliveredUsd.toFixed(2)}, требуется $${minUsd}.`
+        : `Insufficient payment amount: received ~$${inspection.deliveredUsd.toFixed(2)} USD, plan requires $${minUsd} USD.`,
+      logs,
+    };
+  }
+
+  // 5. Atomic claim in used_hashes ONLY AFTER strict on-chain audit passes
   const marked = await markHashUsed(cleanHash, {
     plan: targetPlan,
     cycle: targetCycle,
     network,
-    amountUsd: Number(result.deliveredUsd.toFixed(2)),
+    amountUsd: Number(inspection.deliveredUsd.toFixed(2)),
   });
 
   if (!marked) {
@@ -766,7 +1050,7 @@ export async function verifyOnChainPayment(params: {
   }
 
   logs.push(
-    `> [SUCCESS] Verified $${result.deliveredUsd.toFixed(2)} USD (${result.symbol}) to ${expectedAddr.slice(0, 10)}...!`
+    `> [SUCCESS] Verified $${inspection.deliveredUsd.toFixed(2)} USD (${inspection.symbol}) to ${expectedAddr.slice(0, 10)}...!`
   );
 
   return {
@@ -774,10 +1058,11 @@ export async function verifyOnChainPayment(params: {
     network,
     plan: targetPlan,
     cycle: targetCycle,
-    amountUsd: minUsd,
-    deliveredUsd: Number(result.deliveredUsd.toFixed(2)),
-    symbol: result.symbol,
+    amountUsd: intent ? intent.baseUsd : minUsd,
+    deliveredUsd: Number(inspection.deliveredUsd.toFixed(2)),
+    symbol: inspection.symbol,
     hash: cleanHash,
+    intentId: intent?.id,
     logs,
   };
 }

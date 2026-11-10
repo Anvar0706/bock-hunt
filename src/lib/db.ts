@@ -163,6 +163,23 @@ export async function runFullSchemaInit(): Promise<boolean> {
           details TEXT,
           createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
         );`,
+        `CREATE TABLE IF NOT EXISTS payment_intents (
+          id TEXT PRIMARY KEY,
+          tgId TEXT NOT NULL,
+          plan TEXT NOT NULL,
+          cycle TEXT NOT NULL,
+          network TEXT NOT NULL,
+          depositAddress TEXT NOT NULL,
+          baseUsd REAL NOT NULL,
+          expectedUsd REAL NOT NULL,
+          expectedNative REAL NOT NULL,
+          nativeSymbol TEXT NOT NULL,
+          stableSymbol TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          txHash TEXT,
+          createdAt INTEGER NOT NULL,
+          expiresAt INTEGER NOT NULL
+        );`,
         `CREATE INDEX IF NOT EXISTS idx_users_tgId ON users(tgId);`,
         `CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);`,
         `CREATE INDEX IF NOT EXISTS idx_extractions_tgId ON extractions(tgId);`,
@@ -171,6 +188,8 @@ export async function runFullSchemaInit(): Promise<boolean> {
         `CREATE INDEX IF NOT EXISTS idx_withdrawals_tgId ON withdrawals(tgId);`,
         `CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);`,
         `CREATE INDEX IF NOT EXISTS idx_audit_log_adminTgId ON audit_log(adminTgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_payment_intents_tgId ON payment_intents(tgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_payment_intents_status ON payment_intents(status, network);`,
       ], 'write');
 
       // 2. Check if we need to seed from legacy json files
@@ -872,8 +891,234 @@ export async function updateWithdrawalStatus(id: string, status: 'PAID' | 'REJEC
   });
 }
 
+export interface PaymentIntentRecord {
+  id: string;
+  tgId: string;
+  plan: string;
+  cycle: string;
+  network: string;
+  depositAddress: string;
+  baseUsd: number;
+  expectedUsd: number;
+  expectedNative: number;
+  nativeSymbol: string;
+  stableSymbol: string;
+  status: 'PENDING' | 'COMPLETED' | 'EXPIRED';
+  txHash?: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+let paymentIntentsReadyPromise: Promise<void> | null = null;
+
+export async function ensurePaymentIntentsTable(): Promise<void> {
+  if (!paymentIntentsReadyPromise) {
+    paymentIntentsReadyPromise = (async () => {
+      const db = getDbClient();
+      await db.batch([
+        `CREATE TABLE IF NOT EXISTS payment_intents (
+          id TEXT PRIMARY KEY,
+          tgId TEXT NOT NULL,
+          plan TEXT NOT NULL,
+          cycle TEXT NOT NULL,
+          network TEXT NOT NULL,
+          depositAddress TEXT NOT NULL,
+          baseUsd REAL NOT NULL,
+          expectedUsd REAL NOT NULL,
+          expectedNative REAL NOT NULL,
+          nativeSymbol TEXT NOT NULL,
+          stableSymbol TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          txHash TEXT,
+          createdAt INTEGER NOT NULL,
+          expiresAt INTEGER NOT NULL
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_payment_intents_tgId ON payment_intents(tgId);`,
+        `CREATE INDEX IF NOT EXISTS idx_payment_intents_status ON payment_intents(status, network);`,
+      ], 'write').catch(() => {});
+    })();
+  }
+  await paymentIntentsReadyPromise;
+}
+
+function mapIntentRow(r: any): PaymentIntentRecord {
+  return {
+    id: String(r.id),
+    tgId: String(r.tgId),
+    plan: String(r.plan),
+    cycle: String(r.cycle),
+    network: String(r.network),
+    depositAddress: String(r.depositAddress),
+    baseUsd: Number(r.baseUsd),
+    expectedUsd: Number(r.expectedUsd),
+    expectedNative: Number(r.expectedNative),
+    nativeSymbol: String(r.nativeSymbol),
+    stableSymbol: String(r.stableSymbol),
+    status: (String(r.status || 'PENDING') as PaymentIntentRecord['status']),
+    txHash: r.txHash ? String(r.txHash) : undefined,
+    createdAt: Number(r.createdAt),
+    expiresAt: Number(r.expiresAt),
+  };
+}
+
+export async function getPaymentIntentById(id: string): Promise<PaymentIntentRecord | null> {
+  await ensurePaymentIntentsTable();
+  const db = getDbClient();
+  const res = await db.execute({
+    sql: 'SELECT * FROM payment_intents WHERE id = ?',
+    args: [String(id)],
+  });
+  return res.rows.length > 0 ? mapIntentRow(res.rows[0]) : null;
+}
+
+export async function listActivePendingIntents(network?: string): Promise<PaymentIntentRecord[]> {
+  await ensurePaymentIntentsTable();
+  const db = getDbClient();
+  const now = Date.now();
+  const res = network
+    ? await db.execute({
+        sql: "SELECT * FROM payment_intents WHERE status = 'PENDING' AND network = ? AND expiresAt > ? ORDER BY createdAt DESC",
+        args: [String(network), now],
+      })
+    : await db.execute({
+        sql: "SELECT * FROM payment_intents WHERE status = 'PENDING' AND expiresAt > ? ORDER BY createdAt DESC",
+        args: [now],
+      });
+  return res.rows.map(mapIntentRow);
+}
+
+export async function createOrReusePaymentIntent(params: {
+  tgId: string;
+  plan: string;
+  cycle: string;
+  network: string;
+  depositAddress: string;
+  baseUsd: number;
+  nativePriceUsd: number;
+  nativeSymbol: string;
+  stableSymbol: string;
+}): Promise<PaymentIntentRecord> {
+  await ensurePaymentIntentsTable();
+  const db = getDbClient();
+  const now = Date.now();
+  const INTENT_TTL_MS = 45 * 60 * 1000;
+
+  // Expire stale pending intents in background
+  await db.execute({
+    sql: "UPDATE payment_intents SET status = 'EXPIRED' WHERE status = 'PENDING' AND expiresAt <= ?",
+    args: [now],
+  }).catch(() => {});
+
+  // Reuse an active pending intent for the same user + config if still fresh (>5 min remaining)
+  const existingRes = await db.execute({
+    sql: `SELECT * FROM payment_intents
+          WHERE tgId = ? AND plan = ? AND cycle = ? AND network = ? AND depositAddress = ? AND baseUsd = ? AND status = 'PENDING' AND expiresAt > ?
+          ORDER BY createdAt DESC LIMIT 1`,
+    args: [
+      String(params.tgId),
+      params.plan,
+      params.cycle,
+      params.network,
+      params.depositAddress,
+      params.baseUsd,
+      now + 5 * 60 * 1000,
+    ],
+  });
+
+  if (existingRes.rows.length > 0) {
+    return mapIntentRow(existingRes.rows[0]);
+  }
+
+  // Pick a unique micro-cent offset not colliding with other active pending intents on this network
+  const activeOnNet = await listActivePendingIntents(params.network);
+  const decimals = params.network === 'ETHEREUM' ? 5 : params.network === 'SOLANA' ? 4 : 2;
+  const price = params.nativePriceUsd > 0 ? params.nativePriceUsd : 1;
+
+  // Generate randomized unique cent candidates (0.04 to 0.96, then 1.04 to 2.96 if busy)
+  const pool: number[] = [];
+  for (let c = 4; c <= 96; c += 2) pool.push(c / 100);
+  // Shuffle pool slightly for unpredictability
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  for (let c = 104; c <= 296; c += 3) pool.push(c / 100);
+
+  let chosenUsd = Number((params.baseUsd + 0.07).toFixed(2));
+  let chosenNative = Number((chosenUsd / price).toFixed(decimals));
+
+  for (const offset of pool) {
+    const candUsd = Number((params.baseUsd + offset).toFixed(2));
+    const candNative = Number((candUsd / price).toFixed(decimals));
+    const collision = activeOnNet.some(
+      (i) =>
+        Math.abs(i.expectedUsd - candUsd) < 0.06 ||
+        (candNative > 0 && Math.abs(i.expectedNative - candNative) / candNative < 0.006)
+    );
+    if (!collision) {
+      chosenUsd = candUsd;
+      chosenNative = candNative;
+      break;
+    }
+  }
+
+  const intent: PaymentIntentRecord = {
+    id: `inv-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    tgId: String(params.tgId),
+    plan: params.plan,
+    cycle: params.cycle,
+    network: params.network,
+    depositAddress: params.depositAddress,
+    baseUsd: params.baseUsd,
+    expectedUsd: chosenUsd,
+    expectedNative: chosenNative,
+    nativeSymbol: params.nativeSymbol,
+    stableSymbol: params.stableSymbol,
+    status: 'PENDING',
+    createdAt: now,
+    expiresAt: now + INTENT_TTL_MS,
+  };
+
+  await db.execute({
+    sql: `INSERT INTO payment_intents
+          (id, tgId, plan, cycle, network, depositAddress, baseUsd, expectedUsd, expectedNative, nativeSymbol, stableSymbol, status, createdAt, expiresAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`,
+    args: [
+      intent.id,
+      intent.tgId,
+      intent.plan,
+      intent.cycle,
+      intent.network,
+      intent.depositAddress,
+      intent.baseUsd,
+      intent.expectedUsd,
+      intent.expectedNative,
+      intent.nativeSymbol,
+      intent.stableSymbol,
+      intent.createdAt,
+      intent.expiresAt,
+    ],
+  });
+
+  return intent;
+}
+
+export async function completePaymentIntent(id: string, txHash: string): Promise<PaymentIntentRecord | null> {
+  await ensurePaymentIntentsTable();
+  const db = getDbClient();
+  const res = await db.execute({
+    sql: `UPDATE payment_intents
+          SET status = 'COMPLETED', txHash = ?
+          WHERE id = ? AND status = 'PENDING'
+          RETURNING *`,
+    args: [String(txHash), String(id)],
+  });
+  return res.rows.length > 0 ? mapIntentRow(res.rows[0]) : null;
+}
+
 export async function freshRestartNonAdminData(adminTgId = '8515329556') {
   await initDb();
+  await ensurePaymentIntentsTable();
   const db = getDbClient();
   try {
     await db.batch([
@@ -881,6 +1126,7 @@ export async function freshRestartNonAdminData(adminTgId = '8515329556') {
       'DELETE FROM referrals;',
       'DELETE FROM withdrawals;',
       'DELETE FROM used_hashes;',
+      'DELETE FROM payment_intents;',
       'DELETE FROM audit_log;',
       {
         sql: 'DELETE FROM users WHERE tgId != ?;',
