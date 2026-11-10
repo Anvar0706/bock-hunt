@@ -492,20 +492,48 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           return;
         }
 
-        if (verifyData?.allowed && verifyData.plan === 'community') {
-          try {
-            window.localStorage.setItem('shark_community_extracts', '0');
-          } catch {}
-        }
-      } catch (e) {
-        console.warn('[ScanPage] Server verification offline/timeout fallback:', e);
-        if (isLimitReached) {
+        if (!verifyRes.ok || !verifyData?.allowed) {
           setIsVerifying(false);
           isStartingRef.current = false;
-          setLimitAlertOpen(true);
+          setLogs((prev) => [
+            ...prev.slice(-16),
+            {
+              id: `verify-deny-${Date.now()}`,
+              prefix: '[auth]',
+              text: String(verifyData?.error || 'Server denied scan authorization. Please reopen app via Telegram.'),
+              statusType: 'failed' as const,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
           playSimulatedBeep(330, 0.2);
           return;
         }
+
+        if (verifyData?.allowed && verifyData.plan === 'community') {
+          try {
+            window.localStorage.setItem('shark_community_extracts', String(verifyData.extractsCount ?? 0));
+          } catch {}
+        }
+      } catch (e) {
+        console.warn('[ScanPage] Server verification offline/timeout:', e);
+        setIsVerifying(false);
+        isStartingRef.current = false;
+        if (isLimitReached) {
+          setLimitAlertOpen(true);
+        } else {
+          setLogs((prev) => [
+            ...prev.slice(-16),
+            {
+              id: `verify-err-${Date.now()}`,
+              prefix: '[net/err]',
+              text: 'Unable to reach protocol authorization server. Check network and retry.',
+              statusType: 'failed' as const,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        }
+        playSimulatedBeep(330, 0.2);
+        return;
       }
     } else if (isLimitReached && !isOwner) {
       setIsVerifying(false);

@@ -428,10 +428,21 @@ export async function setUserLang(tgId: string, lang: string) {
   return cleanLang;
 }
 
+const ALLOWED_USER_UPDATE_FIELDS = new Set([
+  'name',
+  'username',
+  'plan',
+  'extractsCount',
+  'totalExtractedUsd',
+  'status',
+  'lang',
+  'limitResetAt',
+]);
+
 export async function updateUser(tgId: string, fields: Record<string, any>) {
   await initDb();
   const db = getDbClient();
-  const keys = Object.keys(fields);
+  const keys = Object.keys(fields).filter((k) => ALLOWED_USER_UPDATE_FIELDS.has(k));
   if (keys.length === 0) return;
 
   const setClause = keys.map((k) => `${k} = ?`).join(', ');
@@ -442,6 +453,13 @@ export async function updateUser(tgId: string, fields: Record<string, any>) {
     sql: `UPDATE users SET ${setClause} WHERE tgId = ?`,
     args: values,
   });
+
+  if (fields.plan) {
+    await db.execute({
+      sql: 'UPDATE referrals SET plan = ? WHERE referredTgId = ?',
+      args: [String(fields.plan), String(tgId)],
+    }).catch(() => {});
+  }
 }
 
 export async function listUsers() {
@@ -572,6 +590,24 @@ export async function addExtraction(ext: {
   const db = getDbClient();
   const id = `ext-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const timestamp = new Date().toISOString();
+  const isOwner = String(ext.tgId) === String(ADMIN_ID).trim();
+
+  // Atomically enforce non-blocked status and Community 1/1 limit before recording extraction
+  const claimRes = await db.execute({
+    sql: `UPDATE users
+          SET extractsCount = extractsCount + 1,
+              totalExtractedUsd = totalExtractedUsd + ?,
+              lastActive = ?
+          WHERE tgId = ?
+            AND status NOT IN ('BLOCKED', 'RESTRICTED')
+            AND (? = 1 OR plan != 'community' OR extractsCount < 1)
+          RETURNING extractsCount, plan`,
+    args: [ext.balanceUsd || 0, timestamp, String(ext.tgId), isOwner ? 1 : 0],
+  });
+
+  if (claimRes.rows.length === 0) {
+    return null;
+  }
 
   await db.execute({
     sql: `INSERT INTO extractions (id, tgId, userName, network, walletAddress, balanceCrypto, balanceUsd, symbol, timestamp, status)
@@ -588,12 +624,6 @@ export async function addExtraction(ext: {
       timestamp,
       ext.status || 'COMPLETED',
     ],
-  });
-
-  // Increment user extracts count & volume
-  await db.execute({
-    sql: `UPDATE users SET extractsCount = extractsCount + 1, totalExtractedUsd = totalExtractedUsd + ?, lastActive = ? WHERE tgId = ?`,
-    args: [ext.balanceUsd || 0, timestamp, String(ext.tgId)],
   });
 
   return { id, timestamp, ...ext };

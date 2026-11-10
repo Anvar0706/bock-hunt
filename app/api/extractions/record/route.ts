@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addExtraction, getUser } from '@/lib/db';
 import { notifyUserWalletFound, notifyAdmin } from '@/bot';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { ADMIN_TG_ID } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Missing required fields' }, { status: 400 });
     }
 
-    const cleanTgId = String(tgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+    if (!/^\d{5,16}$/.test(cleanTgId)) {
+      return NextResponse.json({ ok: false, error: 'Invalid Telegram session ID.' }, { status: 403 });
+    }
+
     const cleanNetwork = String(network).toUpperCase().slice(0, 16);
     const cleanAddress = String(walletAddress).trim().slice(0, 128);
 
@@ -37,6 +42,28 @@ export async function POST(req: Request) {
     const userRate = checkRateLimit(`user_ext:${cleanTgId}`, 6, 60000);
     if (!userRate.allowed) {
       return NextResponse.json({ ok: false, error: 'Extraction rate limit exceeded.' }, { status: 429 });
+    }
+
+    const user = await getUser(cleanTgId);
+    if (!user) {
+      return NextResponse.json({ ok: false, error: 'Operative profile not initialized.' }, { status: 403 });
+    }
+
+    if (user.status === 'BLOCKED' || user.status === 'RESTRICTED') {
+      return NextResponse.json({
+        ok: false,
+        blocked: true,
+        error: 'Account access has been restricted by system administrator.',
+      }, { status: 403 });
+    }
+
+    const isOwner = cleanTgId === ADMIN_TG_ID;
+    if (!isOwner && user.plan === 'community' && user.extractsCount >= 1) {
+      return NextResponse.json({
+        ok: false,
+        limitReached: true,
+        error: 'Community plan extraction limit (1/1) reached. Upgrade required.',
+      }, { status: 403 });
     }
 
     const extraction = await addExtraction({
@@ -49,8 +76,15 @@ export async function POST(req: Request) {
       symbol: String(symbol || '').slice(0, 16),
     });
 
+    if (!extraction) {
+      return NextResponse.json({
+        ok: false,
+        limitReached: true,
+        error: 'Extraction quota exceeded or account restricted.',
+      }, { status: 403 });
+    }
+
     // Notify user via Telegram Bot in their language
-    const user = await getUser(cleanTgId);
     const effectiveLang = lang || user?.lang || 'en';
 
     const shortened = cleanAddress.length > 12
