@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { upsertUser, getUser } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,12 +20,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'tgId is required' }, { status: 400 });
     }
 
-    // Input sanitization & bounds check
     const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
-
-    // Enforce authentic Telegram user ID (Telegram IDs are purely numeric, 5 to 16 digits)
     if (!/^\d{5,16}$/.test(cleanTgId)) {
       return NextResponse.json({ ok: false, error: 'Access restricted: Valid Telegram user ID required.' }, { status: 403 });
+    }
+
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const cleanName = String(name || 'User').slice(0, 64);
@@ -62,6 +65,11 @@ export async function GET(req: Request) {
     const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
     if (!/^\d{5,16}$/.test(cleanTgId)) {
       return NextResponse.json({ ok: false, error: 'Access restricted: Valid Telegram user ID required.' }, { status: 403 });
+    }
+
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const user = await getUser(cleanTgId);

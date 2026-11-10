@@ -11,6 +11,7 @@ import { generateRandomScanLog, generateMatchScanLog, generateRandomMatchedWalle
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getEffectiveProPrice } from '../data/adminSettings';
+import { getTelegramHeaders } from '../lib/tgHeaders';
 import { CheckCircle2, AlertTriangle, Crown, X, Sparkles } from 'lucide-react';
 
 interface ScanPageProps {
@@ -446,7 +447,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
         try {
           verifyRes = await fetch('/api/scan/verify', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getTelegramHeaders(),
             body: JSON.stringify({ tgId: currentUserId }),
             signal: verifyController.signal,
           });

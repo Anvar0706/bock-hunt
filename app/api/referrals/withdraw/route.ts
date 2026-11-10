@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server';
-import { createWithdrawal, getReferralStats, getUser } from '@/lib/db';
+import { createWithdrawalSafe, getUser } from '@/lib/db';
 import { notifyAdmin } from '@/bot';
 import { getBotMsg } from '@/bot/messages';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const ipRate = checkRateLimit(`withdraw_ip:${ip}`, 8, 600000);
+    if (!ipRate.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Too many withdrawal requests from this network. Please wait.',
+      }, { status: 429 });
+    }
+
     const body = await req.json();
     const {
       tgId,
@@ -22,24 +32,28 @@ export async function POST(req: Request) {
     const effectiveAmount = amountUsd !== undefined ? amountUsd : amount;
     const effectiveAddress = String(walletAddress || address || '').trim();
 
-    if (tgId) {
-      const rate = checkRateLimit(`withdraw:${tgId}`, 4, 600000); // 4 per 10 minutes
-      if (!rate.allowed) {
-        return NextResponse.json({
-          ok: false,
-          error: lang === 'ru'
-            ? 'Слишком много запросов на вывод. Пожалуйста, подождите немного.'
-            : 'Too many withdrawal requests. Please wait a few minutes before trying again.',
-        }, { status: 429 });
-      }
-    }
-
     if (!tgId || effectiveAmount === undefined || !network || !effectiveAddress) {
       return NextResponse.json({ ok: false, error: 'Missing required withdrawal fields' }, { status: 400 });
     }
 
+    const cleanTgId = String(tgId).trim();
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const userRate = checkRateLimit(`withdraw:${cleanTgId}`, 4, 600000);
+    if (!userRate.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: lang === 'ru'
+          ? 'Слишком много запросов на вывод. Пожалуйста, подождите немного.'
+          : 'Too many withdrawal requests. Please wait a few minutes before trying again.',
+      }, { status: 429 });
+    }
+
     const numAmount = Number(effectiveAmount);
-    if (!Number.isFinite(numAmount) || numAmount < 10) {
+    if (!Number.isFinite(numAmount) || numAmount < 10 || numAmount > 100000) {
       return NextResponse.json({
         ok: false,
         error: lang === 'ru'
@@ -48,11 +62,11 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    const cleanAddr = effectiveAddress;
+    const cleanNet = String(network).toUpperCase();
     const isValidAddress =
-      (network === 'TRON' && /^T[1-9A-HJ-NP-za-km-z]{33}$/.test(cleanAddr)) ||
-      (network === 'ETHEREUM' && /^0x[a-fA-F0-9]{40}$/.test(cleanAddr)) ||
-      (network === 'SOLANA' && /^[1-9A-HJ-NP-za-km-z]{32,44}$/.test(cleanAddr));
+      (cleanNet === 'TRON' && /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(effectiveAddress)) ||
+      (cleanNet === 'ETHEREUM' && /^0x[a-fA-F0-9]{40}$/.test(effectiveAddress)) ||
+      (cleanNet === 'SOLANA' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(effectiveAddress));
 
     if (!isValidAddress) {
       return NextResponse.json({
@@ -63,22 +77,31 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    const stats = await getReferralStats(String(tgId));
+    const user = await getUser(cleanTgId);
+    const result = await createWithdrawalSafe({
+      tgId: cleanTgId,
+      userName: user?.name || 'Operative',
+      userUsername: user?.username || '',
+      amountUsd: numAmount,
+      network: cleanNet,
+      walletAddress: effectiveAddress,
+    });
 
-    // Prevent concurrent double-spend requests
-    const existingPending = stats.withdrawalsList?.find(
-      (w) => w.status === 'PENDING' && Date.now() - new Date(w.requestedAt).getTime() < 15000
-    );
-    if (existingPending) {
-      return NextResponse.json({
-        ok: false,
-        error: lang === 'ru'
-          ? 'Заявка на вывод уже создана и обрабатывается.'
-          : 'A withdrawal request is already pending. Please allow 15 seconds.',
-      }, { status: 429 });
-    }
-
-    if (numAmount > stats.availableBalance) {
+    if (!result.ok) {
+      if (result.reason === 'blocked') {
+        return NextResponse.json({
+          ok: false,
+          error: lang === 'ru' ? 'Аккаунт заблокирован администратором.' : 'Account access restricted by administrator.',
+        }, { status: 403 });
+      }
+      if (result.reason === 'cooldown') {
+        return NextResponse.json({
+          ok: false,
+          error: lang === 'ru'
+            ? 'Заявка на вывод уже создана и обрабатывается.'
+            : 'A withdrawal request is already pending. Please allow 15 seconds.',
+        }, { status: 429 });
+      }
       return NextResponse.json({
         ok: false,
         error: lang === 'ru'
@@ -87,30 +110,18 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    const user = await getUser(String(tgId));
-
-    const withdrawal = await createWithdrawal({
-      tgId: String(tgId),
-      userName: user?.name || 'Operative',
-      userUsername: user?.username || '',
-      amountUsd: numAmount,
-      network,
-      walletAddress: effectiveAddress,
-    });
-
-    // Alert Admin via Telegram Bot
     const adminAlert = getBotMsg('en', 'withdrawalAdminAlert', {
-      id: withdrawal.id,
+      id: result.withdrawal.id,
       userName: user?.name || 'Operative',
-      userId: String(tgId),
+      userId: cleanTgId,
       userUname: user?.username || 'none',
       amountUsd: numAmount,
-      network,
-      address,
+      network: cleanNet,
+      address: effectiveAddress,
     });
     notifyAdmin(adminAlert).catch(() => {});
 
-    return NextResponse.json({ ok: true, withdrawal });
+    return NextResponse.json({ ok: true, withdrawal: result.withdrawal });
   } catch (err: any) {
     console.error('Error in /api/referrals/withdraw:', err?.message || err);
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });

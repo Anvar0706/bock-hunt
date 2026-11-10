@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReferralStats, WithdrawalNetwork, WithdrawalRequest } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { getTelegramHeaders } from '../lib/tgHeaders';
 import {
   Users,
   DollarSign,
@@ -78,7 +79,9 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
         return;
       }
       try {
-        const res = await fetch(`/api/referrals/stats?tgId=${userId}`);
+        const res = await fetch(`/api/referrals/stats?tgId=${userId}`, {
+          headers: getTelegramHeaders(false),
+        });
         const data = await res.json();
         if (data.ok && data.stats) {
           setStats(data.stats);
@@ -172,7 +175,7 @@ export const ReferralPage: React.FC<ReferralPageProps> = ({ tgUser }) => {
     try {
       const res = await fetch('/api/referrals/withdraw', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getTelegramHeaders(),
         body: JSON.stringify({
           tgId: userId,
           userName,

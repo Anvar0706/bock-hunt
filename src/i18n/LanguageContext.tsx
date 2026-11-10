@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations, type Language, type TranslationKey } from './translations';
+import { getTelegramHeaders } from '../lib/tgHeaders';
 
 interface LanguageContextType {
   language: Language;
@@ -47,7 +48,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (tgId) {
         fetch('/api/users/lang', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getTelegramHeaders(),
           body: JSON.stringify({ tgId: String(tgId), lang }),
         }).catch(() => {});
       }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUser } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
-import { ADMIN_TG_ID } from '@/lib/authGuard';
+import { ADMIN_TG_ID, verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +27,11 @@ export async function POST(req: Request) {
         reason: 'invalid_session',
         error: 'Valid Telegram session required.',
       }, { status: 403 });
+    }
+
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const user = await getUser(cleanTgId);

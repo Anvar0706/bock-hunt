@@ -4,6 +4,7 @@ import { getUser, logAudit } from '@/lib/db';
 import { finalizeVerifiedPayment } from '@/lib/paymentActivation';
 import { notifyPaymentFailed } from '@/bot';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,11 +36,9 @@ export async function POST(req: Request) {
     const effectiveCycle = (billingCycle || cycle) === 'monthly' ? 'monthly' : 'weekly';
 
     const cleanTgId = tgId ? String(tgId).trim() : '';
-    if (!/^\d{5,16}$/.test(cleanTgId)) {
-      return NextResponse.json({
-        ok: false,
-        error: lang === 'ru' ? 'Требуется авторизация Telegram!' : 'Valid Telegram session is required for activation!',
-      }, { status: 403 });
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const existingUser = await getUser(cleanTgId);

@@ -7,6 +7,7 @@ import {
 } from '@/lib/db';
 import { getLiveCryptoPrices } from '@/lib/blockchain';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,9 @@ export async function POST(req: Request) {
     } = body || {};
 
     const cleanTgId = tgId ? String(tgId).trim() : '';
-    if (!/^\d{5,16}$/.test(cleanTgId)) {
-      return NextResponse.json(
-        { ok: false, error: 'Valid Telegram session ID is required.' },
-        { status: 403 }
-      );
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const cleanPlan = String(plan).toLowerCase();

@@ -11,10 +11,11 @@ import {
 } from '@/lib/blockchain';
 import { finalizeVerifiedPayment } from '@/lib/paymentActivation';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
-async function handleCheck(intentId: string, tgId: string, lang = 'en') {
+async function handleCheck(req: Request, intentId: string, tgId: string, lang = 'en') {
   if (!intentId) {
     return NextResponse.json({ ok: false, error: 'intentId is required' }, { status: 400 });
   }
@@ -26,6 +27,11 @@ async function handleCheck(intentId: string, tgId: string, lang = 'en') {
 
   if (tgId && intent.tgId !== String(tgId).trim()) {
     return NextResponse.json({ ok: false, error: 'Unauthorized invoice lookup' }, { status: 403 });
+  }
+
+  const auth = await verifyOperativeRequest(req, intent.tgId);
+  if (!auth.ok) {
+    return auth.response;
   }
 
   // Already confirmed (e.g., via push webhook or concurrent check)
@@ -123,7 +129,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    return await handleCheck(String(body?.intentId || ''), String(body?.tgId || ''), String(body?.lang || 'en'));
+    return await handleCheck(req, String(body?.intentId || ''), String(body?.tgId || ''), String(body?.lang || 'en'));
   } catch (err: any) {
     console.error('Error in POST /api/payments/check-intent:', err?.message || err);
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
@@ -140,6 +146,7 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     return await handleCheck(
+      req,
       url.searchParams.get('intentId') || '',
       url.searchParams.get('tgId') || '',
       url.searchParams.get('lang') || 'en'

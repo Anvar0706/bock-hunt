@@ -18,6 +18,7 @@ import {
 import { useLivePrices } from '../hooks/useLivePrices';
 import { useLanguage } from '../i18n/LanguageContext';
 import { DEFAULT_ADMIN_DEPOSIT_ADDRESSES, DEFAULT_PRICING_SETTINGS } from '../data/adminSettings';
+import { getTelegramHeaders } from '../lib/tgHeaders';
 
 interface PaymentIntentView {
   id: string;
@@ -174,7 +175,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
 
     fetch('/api/payments/intent', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getTelegramHeaders(),
       body: JSON.stringify({
         tgId: currentTgId,
         plan: selectedPlanForPayment.id,
@@ -212,7 +213,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
       try {
         const res = await fetch('/api/payments/check-intent', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getTelegramHeaders(),
           body: JSON.stringify({
             intentId: activeIntent.id,
             tgId: activeIntent.tgId,
@@ -474,7 +475,7 @@ export const LicensingModal: React.FC<LicensingModalProps> = ({
     try {
       const res = await fetch('/api/verify-payment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getTelegramHeaders(),
         body: JSON.stringify({
           txHash: normalizedHash,
           network: paymentNetwork,

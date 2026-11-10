@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { addExtraction, getUser } from '@/lib/db';
 import { notifyUserWalletFound, notifyAdmin } from '@/bot';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
-import { ADMIN_TG_ID } from '@/lib/authGuard';
+import { ADMIN_TG_ID, verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +33,11 @@ export async function POST(req: Request) {
     const cleanTgId = String(tgId).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
     if (!/^\d{5,16}$/.test(cleanTgId)) {
       return NextResponse.json({ ok: false, error: 'Invalid Telegram session ID.' }, { status: 403 });
+    }
+
+    const auth = await verifyOperativeRequest(req, cleanTgId);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const cleanNetwork = String(network).toUpperCase().slice(0, 16);

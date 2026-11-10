@@ -1,15 +1,18 @@
-// In-memory sliding window rate limiter (Serverless-safe & Zero external dependencies)
+// Bounded in-memory sliding window rate limiter (OOM-proof & Spoof-resistant)
 interface RateLimitEntry {
   count: number;
   resetAt: number;
 }
 
+const MAX_RATE_LIMIT_ENTRIES = 5000;
 const rateLimitMap = new Map<string, RateLimitEntry>();
+let lastPruneTime = 0;
 
-// Purge expired keys periodically when map grows
-function cleanExpired() {
-  if (rateLimitMap.size < 500) return;
-  const now = Date.now();
+function cleanExpired(now: number) {
+  if (now - lastPruneTime < 5000 && rateLimitMap.size < MAX_RATE_LIMIT_ENTRIES) {
+    return;
+  }
+  lastPruneTime = now;
   for (const [key, entry] of rateLimitMap.entries()) {
     if (entry.resetAt <= now) {
       rateLimitMap.delete(key);
@@ -19,28 +22,37 @@ function cleanExpired() {
 
 /**
  * Checks if a key has exceeded its limit in the given window.
- * @param key unique identifier (e.g. `ip:endpoint` or `tgId:action`)
- * @param limit maximum allowed requests in window
- * @param windowMs window duration in milliseconds (default: 60,000ms = 1 minute)
+ * Bounded to MAX_RATE_LIMIT_ENTRIES with FIFO eviction to eliminate memory DoS.
  */
-export function checkRateLimit(key: string, limit: number, windowMs: number = 60000): {
+export function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number = 60000
+): {
   allowed: boolean;
   remaining: number;
   resetInSeconds: number;
 } {
-  cleanExpired();
-
+  const safeKey = String(key || '').slice(0, 128);
   const now = Date.now();
-  const entry = rateLimitMap.get(key);
+  cleanExpired(now);
+
+  const entry = rateLimitMap.get(safeKey);
 
   if (!entry || entry.resetAt <= now) {
-    rateLimitMap.set(key, {
+    while (rateLimitMap.size >= MAX_RATE_LIMIT_ENTRIES) {
+      const oldestKey = rateLimitMap.keys().next().value;
+      if (oldestKey !== undefined) rateLimitMap.delete(oldestKey);
+      else break;
+    }
+
+    rateLimitMap.set(safeKey, {
       count: 1,
       resetAt: now + windowMs,
     });
     return {
       allowed: true,
-      remaining: limit - 1,
+      remaining: Math.max(0, limit - 1),
       resetInSeconds: Math.ceil(windowMs / 1000),
     };
   }
@@ -49,29 +61,38 @@ export function checkRateLimit(key: string, limit: number, windowMs: number = 60
     return {
       allowed: false,
       remaining: 0,
-      resetInSeconds: Math.ceil((entry.resetAt - now) / 1000),
+      resetInSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
     };
   }
 
   entry.count += 1;
   return {
     allowed: true,
-    remaining: limit - entry.count,
-    resetInSeconds: Math.ceil((entry.resetAt - now) / 1000),
+    remaining: Math.max(0, limit - entry.count),
+    resetInSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
   };
 }
 
 /**
- * Helper to extract client IP or fallback identifier from Next.js Request
+ * Extracts verified client IP prioritizing edge-set headers over spoofable client headers.
  */
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
   const realIp = req.headers.get('x-real-ip');
   if (realIp) {
-    return realIp.trim();
+    return realIp.trim().slice(0, 64);
+  }
+  const vercelFwd = req.headers.get('x-vercel-forwarded-for');
+  if (vercelFwd) {
+    return vercelFwd.split(',')[0].trim().slice(0, 64);
+  }
+  const cfIp = req.headers.get('cf-connecting-ip');
+  if (cfIp) {
+    return cfIp.trim().slice(0, 64);
+  }
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const parts = forwarded.split(',');
+    return parts[parts.length - 1].trim().slice(0, 64);
   }
   return '127.0.0.1';
 }

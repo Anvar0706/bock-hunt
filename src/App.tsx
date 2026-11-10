@@ -36,6 +36,7 @@ import {
   INITIAL_TRANSACTIONS,
 } from './data/cryptoEngine';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
+import { getTelegramHeaders } from './lib/tgHeaders';
 
 function MainApp() {
   const { language, t } = useLanguage();
@@ -120,7 +121,7 @@ function MainApp() {
 
     fetch('/api/users/sync', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getTelegramHeaders(),
       body: JSON.stringify({
         tgId: targetUser.id,
         name: targetUser.name,
@@ -211,7 +212,7 @@ function MainApp() {
                 if (referrerId && /^\d+$/.test(referrerId) && referrerId !== currentUserId) {
                   fetch('/api/referrals/bind', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getTelegramHeaders(),
                     body: JSON.stringify({
                       referrerTgId: referrerId,
                       referredTgId: currentUserId,
@@ -279,7 +280,7 @@ function MainApp() {
       try {
         syncRes = await fetch('/api/users/sync', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getTelegramHeaders(),
           body: JSON.stringify({
             tgId: activeUser.id,
             name: activeUser.name,
@@ -319,7 +320,9 @@ function MainApp() {
       // Step 3: Retrieve encrypted extractions and extraction audit logs (scans) from Database
       setHandshakeStep(3);
       try {
-        const extRes = await fetch(`/api/extractions?tgId=${encodeURIComponent(activeUser.id)}`);
+        const extRes = await fetch(`/api/extractions?tgId=${encodeURIComponent(activeUser.id)}`, {
+          headers: getTelegramHeaders(false),
+        });
         if (extRes.ok) {
           const extData = await extRes.json();
           if (extData?.ok && Array.isArray(extData.extractions) && extData.extractions.length > 0) {
@@ -503,7 +506,9 @@ function MainApp() {
   useEffect(() => {
     if (!currentTgUser?.id) return;
 
-    fetch(`/api/extractions?tgId=${encodeURIComponent(currentTgUser.id)}`)
+    fetch(`/api/extractions?tgId=${encodeURIComponent(currentTgUser.id)}`, {
+      headers: getTelegramHeaders(false),
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.ok && Array.isArray(data.extractions) && data.extractions.length > 0) {
@@ -600,7 +605,7 @@ function MainApp() {
     if (currentTgUser?.id) {
       fetch('/api/extractions/record', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getTelegramHeaders(),
         body: JSON.stringify({
           tgId: currentTgUser.id,
           userName: currentTgUser.name,

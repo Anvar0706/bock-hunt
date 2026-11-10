@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { bindReferral } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { verifyOperativeRequest } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,9 +21,17 @@ export async function POST(req: Request) {
     const cleanReferrer = String(referrerTgId).trim();
     const cleanReferred = String(referredTgId).trim();
 
-    // Prevent self-referral spoofing
+    if (!/^\d{5,16}$/.test(cleanReferrer)) {
+      return NextResponse.json({ ok: false, error: 'Invalid referrer ID' }, { status: 400 });
+    }
+
     if (cleanReferrer === cleanReferred) {
       return NextResponse.json({ ok: false, error: 'Self-referral is not permitted' }, { status: 400 });
+    }
+
+    const auth = await verifyOperativeRequest(req, cleanReferred);
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const bound = await bindReferral({

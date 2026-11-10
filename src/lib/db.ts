@@ -545,8 +545,17 @@ export async function resetAllLimits() {
   });
 }
 
+// Hot-read in-memory cache (15s TTL) to eliminate Turso read storms on high traffic
+let cachedAddrs: { data: Record<string, string>; cachedAt: number } | null = null;
+let cachedPricing: { data: any; cachedAt: number } | null = null;
+const CONFIG_CACHE_TTL_MS = 15_000;
+
 // Deposit Addresses
 export async function getAddresses() {
+  const now = Date.now();
+  if (cachedAddrs && now - cachedAddrs.cachedAt < CONFIG_CACHE_TTL_MS) {
+    return cachedAddrs.data;
+  }
   await initDb();
   const db = getDbClient();
   const res = await db.execute('SELECT * FROM admin_addresses');
@@ -556,6 +565,7 @@ export async function getAddresses() {
       result[String(row.network)] = String(row.address);
     }
   }
+  cachedAddrs = { data: result, cachedAt: now };
   return result;
 }
 
@@ -568,17 +578,24 @@ export async function saveAddresses(addrs: Record<string, string>) {
       args: [net, addr],
     });
   }
+  cachedAddrs = null;
   return true;
 }
 
 // Pricing Settings
 export async function getPricingSettings() {
+  const now = Date.now();
+  if (cachedPricing && now - cachedPricing.cachedAt < CONFIG_CACHE_TTL_MS) {
+    return cachedPricing.data;
+  }
   await initDb();
   const db = getDbClient();
   const res = await db.execute("SELECT data FROM pricing_settings WHERE id = 'main'");
   if (res.rows.length === 0) return DEFAULT_PRICING_SETTINGS;
   try {
-    return JSON.parse(String(res.rows[0].data));
+    const parsed = JSON.parse(String(res.rows[0].data));
+    cachedPricing = { data: parsed, cachedAt: now };
+    return parsed;
   } catch {
     return DEFAULT_PRICING_SETTINGS;
   }
@@ -591,6 +608,7 @@ export async function savePricingSettings(settings: any) {
     sql: "INSERT OR REPLACE INTO pricing_settings (id, data, updatedAt) VALUES ('main', ?, CURRENT_TIMESTAMP)",
     args: [JSON.stringify(settings)],
   });
+  cachedPricing = null;
   return true;
 }
 
@@ -675,9 +693,11 @@ export async function isHashUsed(hash: string): Promise<boolean> {
   const db = getDbClient();
   const clean = hash.trim().toLowerCase();
   const raw = clean.replace(/^0x/, '');
+  const with0x = `0x${raw}`;
+  // Query indexed PRIMARY KEY values directly for O(log N) lookup
   const res = await db.execute({
-    sql: 'SELECT hash FROM used_hashes WHERE lower(hash) = ? OR lower(hash) = ?',
-    args: [clean, raw],
+    sql: 'SELECT hash FROM used_hashes WHERE hash = ? OR hash = ? OR hash = ?',
+    args: [clean, raw, with0x],
   });
   return res.rows.length > 0;
 }
@@ -721,9 +741,10 @@ export async function bindReferral(data: {
 }) {
   await initDb();
   const db = getDbClient();
-  const refTgId = String(data.referredTgId);
-  const referrerTgId = String(data.referrerTgId);
+  const refTgId = String(data.referredTgId || '').trim();
+  const referrerTgId = String(data.referrerTgId || '').trim();
 
+  if (!/^\d{5,16}$/.test(refTgId) || !/^\d{5,16}$/.test(referrerTgId)) return false;
   if (refTgId === referrerTgId) return false;
 
   const existing = await db.execute({
@@ -731,6 +752,19 @@ export async function bindReferral(data: {
     args: [refTgId],
   });
   if (existing.rows.length > 0) return false;
+
+  // Prevent retroactive referral farming by already active/paid operatives
+  const existingUser = await db.execute({
+    sql: 'SELECT plan, extractsCount FROM users WHERE tgId = ?',
+    args: [refTgId],
+  });
+  if (existingUser.rows.length > 0) {
+    const uPlan = String(existingUser.rows[0].plan || 'community');
+    const uExtracts = Number(existingUser.rows[0].extractsCount || 0);
+    if (uPlan !== 'community' || uExtracts > 0) {
+      return false;
+    }
+  }
 
   const id = `ref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await db.execute({
@@ -830,6 +864,89 @@ export async function getReferralStats(referrerTgId: string) {
     referralsList,
     withdrawalsList,
   };
+}
+
+export async function createWithdrawalSafe(req: {
+  tgId: string;
+  userName?: string;
+  userUsername?: string;
+  amountUsd: number;
+  network: string;
+  walletAddress: string;
+}): Promise<
+  | { ok: true; withdrawal: { id: string; requestedAt: string; status: 'PENDING'; tgId: string; userName?: string; userUsername?: string; amountUsd: number; network: string; walletAddress: string } }
+  | { ok: false; reason: 'cooldown' | 'insufficient' | 'blocked' }
+> {
+  await initDb();
+  const db = getDbClient();
+  const tx = await db.transaction('write');
+  const id = `wd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const now = new Date().toISOString();
+  const tgIdStr = String(req.tgId).trim();
+
+  try {
+    const userRes = await tx.execute({
+      sql: 'SELECT status FROM users WHERE tgId = ?',
+      args: [tgIdStr],
+    });
+    if (userRes.rows.length > 0) {
+      const st = String(userRes.rows[0].status || 'ACTIVE');
+      if (st === 'BLOCKED' || st === 'RESTRICTED') {
+        await tx.rollback();
+        return { ok: false, reason: 'blocked' };
+      }
+    }
+
+    const earnedRes = await tx.execute({
+      sql: 'SELECT COALESCE(SUM(earnedUsd), 0) as totalEarned FROM referrals WHERE referrerTgId = ?',
+      args: [tgIdStr],
+    });
+    const totalEarned = Number(earnedRes.rows[0]?.totalEarned || 0);
+
+    const wdrRes = await tx.execute({
+      sql: "SELECT amountUsd, status, requestedAt FROM withdrawals WHERE tgId = ? AND status IN ('PENDING', 'PAID')",
+      args: [tgIdStr],
+    });
+
+    let totalUsed = 0;
+    const nowMs = Date.now();
+    for (const w of wdrRes.rows) {
+      totalUsed += Number(w.amountUsd || 0);
+      if (w.status === 'PENDING' && w.requestedAt && nowMs - new Date(String(w.requestedAt)).getTime() < 15000) {
+        await tx.rollback();
+        return { ok: false, reason: 'cooldown' };
+      }
+    }
+
+    const availableBalance = Math.max(0, totalEarned - totalUsed);
+    if (req.amountUsd > availableBalance) {
+      await tx.rollback();
+      return { ok: false, reason: 'insufficient' };
+    }
+
+    await tx.execute({
+      sql: `INSERT INTO withdrawals (id, tgId, userName, userUsername, amountUsd, network, walletAddress, requestedAt, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+      args: [
+        id,
+        tgIdStr,
+        req.userName || 'User',
+        req.userUsername || '',
+        req.amountUsd,
+        req.network,
+        req.walletAddress,
+        now,
+      ],
+    });
+
+    await tx.commit();
+    return { ok: true, withdrawal: { id, requestedAt: now, status: 'PENDING', ...req } };
+  } catch (err) {
+    try {
+      await tx.rollback();
+    } catch {}
+    throw err;
+  }
 }
 
 export async function createWithdrawal(req: {
